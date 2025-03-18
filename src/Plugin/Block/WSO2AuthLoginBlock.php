@@ -174,7 +174,7 @@ class WSO2AuthLoginBlock extends BlockBase implements ContainerFactoryPluginInte
     // Build citizen login button if enabled.
     if ($config['display_citizen']) {
       $citizen_url = Url::fromRoute('wso2_auth.authorize', ['type' => 'citizen'], [
-        'query' => ['destination' => $current_route],
+        // 'query' => ['destination' => $current_route],
       ])->toString();
 
       $build['#citizen_login'] = [
