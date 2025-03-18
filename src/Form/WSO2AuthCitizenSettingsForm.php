@@ -76,7 +76,7 @@ class WSO2AuthCitizenSettingsForm extends ConfigFormBase {
     $form['oauth2']['client_id'] = [
       '#type' => 'textfield',
       '#title' => $this->t('OAuth2 Client ID'),
-      '#default_value' => $config->get('client_id'),
+      '#default_value' => $config->get('citizen.client_id'),
       '#size' => 25,
       '#maxlength' => 64,
       '#description' => $this->t('The OAuth2 client ID.'),
@@ -87,7 +87,7 @@ class WSO2AuthCitizenSettingsForm extends ConfigFormBase {
     $form['oauth2']['client_secret'] = [
       '#type' => 'password',
       '#title' => $this->t('OAuth2 Client Secret'),
-      '#default_value' => $config->get('client_secret'),
+      '#default_value' => $config->get('citizen.client_secret'),
       '#size' => 25,
       '#maxlength' => 64,
       '#description' => $this->t('The OAuth2 client secret.'),
@@ -97,7 +97,7 @@ class WSO2AuthCitizenSettingsForm extends ConfigFormBase {
     $form['oauth2']['scope'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Scope'),
-      '#default_value' => $config->get('scope') ?? 'openid',
+      '#default_value' => $config->get('citizen.scope') ?? 'openid',
       '#description' => $this->t('The OAuth2 scope to request (e.g., openid).'),
       '#required' => TRUE,
     ];
@@ -111,7 +111,7 @@ class WSO2AuthCitizenSettingsForm extends ConfigFormBase {
     $form['user_settings']['auto_register'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Auto-register users'),
-      '#default_value' => $config->get('auto_register') ?? TRUE,
+      '#default_value' => $config->get('citizen.auto_register') ?? TRUE,
       '#description' => $this->t('Automatically register new users when they authenticate with WSO2.'),
     ];
 
@@ -127,7 +127,7 @@ class WSO2AuthCitizenSettingsForm extends ConfigFormBase {
       '#type' => 'select',
       '#title' => $this->t('Role to assign'),
       '#options' => $roles,
-      '#default_value' => $config->get('user_role') ? $config->get('user_role') : 'none',
+      '#default_value' => $config->get('citizen.user_role') ? $config->get('citizen.user_role') : 'none',
       '#description' => $this->t('Define the role assigned to users after registration.'),
     ];
 
@@ -137,7 +137,7 @@ class WSO2AuthCitizenSettingsForm extends ConfigFormBase {
       '#type' => 'checkboxes',
       '#title' => $this->t('Roles to check'),
       '#options' => $roles,
-      '#default_value' => $config->get('roles_to_exclude') ?? ['administrator'],
+      '#default_value' => $config->get('citizen.roles_to_exclude') ?? ['administrator'],
       '#description' => $this->t('Roles to check at login. If the user exists and has one of these roles, then the default role will not be assigned.'),
     ];
 
@@ -148,7 +148,7 @@ class WSO2AuthCitizenSettingsForm extends ConfigFormBase {
       '#description' => $this->t('Configure how WSO2 user fields map to Drupal user fields.'),
     ];
 
-    $mapping = $config->get('mapping') ?? [];
+    $mapping = $config->get('citizen.mapping') ?? [];
 
     $form['field_mapping']['mapping']['user_id'] = [
       '#type' => 'textfield',
