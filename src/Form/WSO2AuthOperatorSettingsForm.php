@@ -199,14 +199,14 @@ class WSO2AuthOperatorSettingsForm extends ConfigFormBase {
     $form['service']['privileges_url'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Privileges Service URL'),
-      '#default_value' => $config->get('operator.privileges_url') ?? '',
+      '#default_value' => $config->get('operator.privileges_url') ?? 'http://baseprivilegioperatore.cst:8080/baseprivilegioperatore/api',
       '#description' => $this->t('The URL of the privileges service for operators.'),
     ];
 
     $form['service']['privileges_stage_url'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Privileges Service URL (Staging)'),
-      '#default_value' => $config->get('operator.privileges_stage_url') ?? '',
+      '#default_value' => $config->get('operator.privileges_stage_url') ?? 'http://baseprivilegioperatori-staging.cst:8080/baseprivilegioperatore/api',
       '#description' => $this->t('The URL of the staging privileges service for operators.'),
     ];
 

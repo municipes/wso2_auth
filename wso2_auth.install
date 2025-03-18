@@ -20,16 +20,17 @@ function wso2_auth_install() {
     ->set('com_entity_id', '')
     ->set('picture_enabled', FALSE)
     ->set('auto_redirect', FALSE)
+    ->set('auto_login', FALSE)
     ->set('debug', FALSE)
 
     // Citizen settings.
-    ->set('client_id', '')
-    ->set('client_secret', '')
-    ->set('scope', 'openid')
-    ->set('auto_register', TRUE)
-    ->set('user_role', 'none')
-    ->set('roles_to_exclude', ['administrator'])
-    ->set('mapping', [
+    ->set('citizen.client_id', '')
+    ->set('citizen.client_secret', '')
+    ->set('citizen.scope', 'openid')
+    ->set('citizen.auto_register', TRUE)
+    ->set('citizen.user_role', 'none')
+    ->set('citizen.roles_to_exclude', ['administrator'])
+    ->set('citizen.mapping', [
       'user_id' => 'sub',
       'username' => 'email',
       'email' => 'email',
@@ -39,12 +40,21 @@ function wso2_auth_install() {
       'mobile_phone' => '',
     ])
 
-    // Operator settings (placeholders for future implementation).
-    ->set('operator_client_id', '')
-    ->set('operator_client_secret', '')
-    ->set('operator_ente', '')
-    ->set('operator_app', '')
-    ->set('operator_role_population', '')
+    // Operator settings.
+    ->set('operator.enabled', FALSE)
+    ->set('operator.client_id', '')
+    ->set('operator.client_secret', '')
+    ->set('operator.scope', 'openid')
+    ->set('operator.ag_entity_id', '')
+    ->set('operator.ente', '')
+    ->set('operator.app', '')
+    ->set('operator.username', '')
+    ->set('operator.password', '')
+    ->set('operator.role_population', '')
+    ->set('operator.auto_register', TRUE)
+    ->set('operator.user_role', 'authenticated')
+    ->set('operator.privileges_url', 'http://baseprivilegioperatore.cst:8080/baseprivilegioperatore/api')
+    ->set('operator.privileges_stage_url', 'http://baseprivilegioperatori-staging.cst:8080/baseprivilegioperatore/api')
 
     ->save();
 
@@ -64,4 +74,62 @@ function wso2_auth_uninstall() {
 
   // Log the uninstallation.
   \Drupal::logger('wso2_auth')->notice('WSO2 Authentication module uninstalled.');
+}
+
+/**
+ * Update config structure from old format to new format.
+ */
+function wso2_auth_update_8001() {
+  $config = \Drupal::configFactory()->getEditable('wso2_auth.settings');
+
+  // Get current values that need to be migrated
+  $client_id = $config->get('client_id');
+  $client_secret = $config->get('client_secret');
+  $scope = $config->get('scope') ?: 'openid';
+  $auto_register = $config->get('auto_register');
+  $user_role = $config->get('user_role');
+  $roles_to_exclude = $config->get('roles_to_exclude');
+  $mapping = $config->get('mapping');
+
+  // Migrate to new structure if values exist
+  if (!empty($client_id)) {
+    // Set values under the new citizen namespace
+    $config->set('citizen.client_id', $client_id)
+      ->set('citizen.client_secret', $client_secret)
+      ->set('citizen.scope', $scope)
+      ->set('citizen.auto_register', $auto_register)
+      ->set('citizen.user_role', $user_role)
+      ->set('citizen.roles_to_exclude', $roles_to_exclude)
+      ->set('citizen.mapping', $mapping);
+  }
+
+  // Migrate operator settings if they exist
+  $operator_client_id = $config->get('operator_client_id');
+  if (!empty($operator_client_id)) {
+    $config->set('operator.enabled', FALSE)
+      ->set('operator.client_id', $operator_client_id)
+      ->set('operator.client_secret', $config->get('operator_client_secret'))
+      ->set('operator.ente', $config->get('operator_ente'))
+      ->set('operator.app', $config->get('operator_app'))
+      ->set('operator.role_population', $config->get('operator_role_population'));
+  }
+
+  // Clear old settings
+  $config->clear('client_id')
+    ->clear('client_secret')
+    ->clear('scope')
+    ->clear('auto_register')
+    ->clear('user_role')
+    ->clear('roles_to_exclude')
+    ->clear('mapping')
+    ->clear('operator_client_id')
+    ->clear('operator_client_secret')
+    ->clear('operator_ente')
+    ->clear('operator_app')
+    ->clear('operator_role_population');
+
+  // Save new configuration
+  $config->save();
+
+  return t('Updated WSO2 Auth configuration structure.');
 }
