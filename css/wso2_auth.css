@@ -1,75 +1,87 @@
 /**
- * @file
- * CSS for WSO2 Authentication.
+ * WSO2 Authentication module styles.
  */
 
- .wso2-auth-login-button {
-  margin: 1em 0;
-  text-align: center;
-}
-
-.wso2-auth-button {
-  display: inline-block;
-  padding: 10px 15px;
-  background-color: #2c3e50;
-  color: white;
-  text-decoration: none;
-  border-radius: 4px;
-  font-weight: bold;
-  transition: background-color 0.3s;
-}
-
-.wso2-auth-button:hover,
-.wso2-auth-button:focus {
-  background-color: #1a242f;
-  color: white;
-  text-decoration: none;
-}
-
+/* Logo */
 .wso2-auth-logo {
-  margin: 1em 0;
+  margin-bottom: 20px;
   text-align: center;
 }
 
 .wso2-auth-logo img {
-  max-width: 300px;
+  max-width: 200px;
   height: auto;
 }
 
-/* Status block styles */
-.wso2-auth-status-block {
-  padding: 15px;
-  background-color: #f9f9f9;
-  border: 1px solid #ddd;
+/* Login button */
+.wso2-auth-login-button {
+  margin: 15px 0;
+  text-align: center;
+}
+
+.wso2-auth-link {
+  display: inline-block;
+  padding: 10px 20px;
+  background-color: #0066cc;
+  color: white;
+  text-decoration: none;
   border-radius: 4px;
-  margin-bottom: 20px;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
 }
 
-.wso2-auth-environment {
-  margin-bottom: 10px;
-  font-size: 0.9em;
-  color: #777;
+.wso2-auth-link:hover {
+  background-color: #004c99;
+  color: white;
+  text-decoration: none;
 }
 
+/* Login block */
+.wso2-auth-login-block {
+  margin: 15px 0;
+}
+
+.wso2-auth-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Operator login button */
+.wso2-auth-link.operator {
+  background-color: #4CAF50;
+}
+
+.wso2-auth-link.operator:hover {
+  background-color: #3e8e41;
+}
+
+/* Status block */
 .wso2-auth-status {
-  margin-bottom: 15px;
-  padding: 8px 12px;
-  border-radius: 3px;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 4px;
 }
 
-.wso2-auth-authenticated {
+.wso2-auth-status.authenticated {
   background-color: #dff0d8;
-  color: #3c763d;
   border: 1px solid #d6e9c6;
+  color: #3c763d;
 }
 
-.wso2-auth-not-authenticated {
+.wso2-auth-status.not-authenticated {
   background-color: #f2dede;
-  color: #a94442;
   border: 1px solid #ebccd1;
+  color: #a94442;
 }
 
-.wso2-auth-login,
-.wso2-auth-logout {
-  margin-top: 10px;
+.wso2-auth-status-environment {
+  font-size: 0.8em;
+  color: #777;
+  margin-top: 5px;
+}
+
+.wso2-auth-status-environment.staging {
+  color: #e67e22;
+  font-weight: bold;
 }

@@ -147,9 +147,20 @@ class WSO2AuthService {
    */
   public function isConfigured() {
     $config = $this->configFactory->get('wso2_auth.settings');
-    return $config->get('enabled') &&
-      !empty($config->get('citizen.client_id')) &&
-      !empty($config->get('citizen.client_secret'));
+    $enabled = $config->get('enabled');
+    $client_id = $config->get('citizen.client_id');
+    $client_secret = $config->get('citizen.client_secret');
+
+    // Log the configuration status
+    $this->logger->debug('WSO2 Auth configuration status: enabled=@enabled, client_id=@client_id, client_secret=@secret', [
+      '@enabled' => $enabled ? 'true' : 'false',
+      '@client_id' => !empty($client_id) ? 'set' : 'not set',
+      '@secret' => !empty($client_secret) ? 'set' : 'not set',
+    ]);
+
+    return $enabled &&
+      !empty($client_id) &&
+      !empty($client_secret);
   }
 
   /**
@@ -191,13 +202,40 @@ class WSO2AuthService {
   /**
    * Get the redirect URI for OAuth2 callbacks.
    *
+   * @param string $destination
+   *   The original page/destination the user was on.
+   *
    * @return string
    *   The absolute URL for the redirect URI.
    */
-  public function getRedirectUri() {
-    return Url::fromRoute('wso2_auth.callback')
+  public function getRedirectUri($destination = '') {
+    if (!empty($destination)) {
+      // If a destination is provided, construct an absolute URL for it
+      // For WSO2 implementation, redirect_uri should be the original page
+      $base_url = Url::fromRoute('<front>')->setAbsolute()->toString();
+      // Remove trailing slash from base URL if present
+      $base_url = rtrim($base_url, '/');
+      // Make sure destination starts with a slash
+      $destination = '/' . ltrim($destination, '/');
+      $redirect_uri = $base_url . $destination;
+
+      $this->logger->debug('WSO2 Auth: Custom redirect URI from destination: @uri', [
+        '@uri' => $redirect_uri,
+      ]);
+
+      return $redirect_uri;
+    }
+
+    // Fallback to standard callback path if no destination is provided
+    $callback_url = Url::fromRoute('wso2_auth.callback')
       ->setAbsolute()
       ->toString();
+
+    $this->logger->debug('WSO2 Auth: Default callback redirect URI: @uri', [
+      '@uri' => $callback_url,
+    ]);
+
+    return $callback_url;
   }
 
   /**
@@ -205,24 +243,28 @@ class WSO2AuthService {
    *
    * @param string $destination
    *   The internal path to redirect to after authentication.
+   * @param string $type
+   *   The authentication type (citizen or operator).
    *
    * @return string
    *   The authorization URL.
    */
-  public function getAuthorizationUrl($destination = '') {
+  public function getAuthorizationUrl($destination = '', $type = 'citizen') {
     $config = $this->configFactory->get('wso2_auth.settings');
 
     // Store the destination in the session.
+    // This is where the user will be redirected AFTER successful authentication
     if (!empty($destination)) {
       $this->session->set('wso2_auth_destination', $destination);
 
       // Debug log the destination being stored
-      if ($config->get('debug')) {
-        $this->logger->debug('WSO2 Auth: Storing destination in session: @destination', [
-          '@destination' => $destination,
-        ]);
-      }
+      $this->logger->debug('WSO2 Auth: Storing destination in session: @destination', [
+        '@destination' => $destination,
+      ]);
     }
+
+    // Store the authentication type in the session
+    $this->session->set('wso2_auth_type', $type);
 
     // Generate the state parameter.
     $state = $this->generateState();
@@ -234,23 +276,56 @@ class WSO2AuthService {
     $auth_endpoint = $this->environmentHelper->getAuthEndpoint();
     $full_auth_url = $auth_server_url . $auth_endpoint;
 
-    // Get the redirect URI
-    $redirect_uri = $this->getRedirectUri();
+    // Get the redirect URI, using the destination if provided
+    $redirect_uri = $this->getRedirectUri($destination);
+
+    // Get the client ID and secret based on authentication type
+    $client_id = ($type === 'operator')
+      ? $config->get('operator.client_id')
+      : $config->get('citizen.client_id');
+
+    $client_secret = ($type === 'operator')
+      ? $config->get('operator.client_secret')
+      : $config->get('citizen.client_secret');
+
+    $scope = ($type === 'operator')
+      ? $config->get('operator.scope') ?? 'openid'
+      : $config->get('citizen.scope') ?? 'openid';
+
+    $ag_entity_id = ($type === 'operator')
+      ? $config->get('operator.ag_entity_id') ?? $config->get('ag_entity_id')
+      : $config->get('ag_entity_id');
 
     // Build the authorization URL.
     $params = [
-      'agEntityId' => $config->get('ag_entity_id'),
-      'client_id' => $config->get('citizen.client_id'),
-      'client_secret' => $config->get('citizen.client_secret'),
-      'redirect_uri' => $redirect_uri,
+      'agEntityId' => $ag_entity_id,
+      'client_id' => $client_id,
+      'client_secret' => $client_secret,
+      'redirect_uri' => $redirect_uri, // This must be the callback URL, not the destination
       'response_type' => 'code',
-      'scope' => $config->get('citizen.scope'),
+      'scope' => $scope,
       'state' => $state,
     ];
+
+    // For operator authentication, add extra parameters if needed
+    if ($type === 'operator') {
+      // Add a parameter to identify this as a special auth flow for operators
+      $params['isAuthOperator'] = 'yes';
+    }
+
+    // Log the full authorization parameters for debugging
+    $this->logger->debug('WSO2 Auth: Authorization parameters: @params', [
+      '@params' => print_r($params, TRUE),
+    ]);
 
     // Allow other modules to alter the authorization URL.
     $built_url = $full_auth_url . '?' . http_build_query($params);
     \Drupal::moduleHandler()->alter('wso2_auth_authorization_url', $built_url, $params);
+
+    // Log the final built URL for debugging
+    $this->logger->debug('WSO2 Auth: Built authorization URL: @url', [
+      '@url' => $built_url,
+    ]);
 
     return $built_url;
   }
@@ -267,16 +342,33 @@ class WSO2AuthService {
   public function getTokens($code) {
     $config = $this->configFactory->get('wso2_auth.settings');
 
-    // Get the redirect URI
-    $redirect_uri = $this->getRedirectUri();
+    // Get the auth type from session
+    $auth_type = $this->session->get('wso2_auth_type', 'citizen');
+
+    // Get the redirect URI - use the destination stored in session if available
+    $destination = $this->session->get('wso2_auth_destination');
+    $redirect_uri = $this->getRedirectUri($destination);
+
+    $this->logger->debug('WSO2 Auth: Using redirect URI for token request: @uri', [
+      '@uri' => $redirect_uri,
+    ]);
+
+    // Get the client ID and secret based on authentication type
+    $client_id = ($auth_type === 'operator')
+      ? $config->get('operator.client_id')
+      : $config->get('citizen.client_id');
+
+    $client_secret = ($auth_type === 'operator')
+      ? $config->get('operator.client_secret')
+      : $config->get('citizen.client_secret');
 
     // Prepare the token request parameters
     $params = [
       'grant_type' => 'authorization_code',
       'code' => $code,
       'redirect_uri' => $redirect_uri,
-      'client_id' => $config->get('citizen.client_id'),
-      'client_secret' => $config->get('citizen.client_secret'),
+      'client_id' => $client_id,
+      'client_secret' => $client_secret,
     ];
 
     // Allow other modules to alter the token request
@@ -388,13 +480,19 @@ class WSO2AuthService {
    *
    * @param array $user_data
    *   The user data from WSO2.
+   * @param string $auth_type
+   *   The authentication type (citizen or operator).
    *
    * @return \Drupal\user\UserInterface|bool
    *   The authenticated user or FALSE on failure.
    */
-  public function authenticateUser(array $user_data) {
+  public function authenticateUser(array $user_data, $auth_type = 'citizen') {
     $config = $this->configFactory->get('wso2_auth.settings');
-    $mapping = $config->get('citizen.mapping');
+
+    // Get the mapping based on auth type
+    $mapping = ($auth_type === 'operator')
+      ? $config->get('operator.mapping') ?? $config->get('citizen.mapping')
+      : $config->get('citizen.mapping');
 
     // Get the unique identifier.
     $id_key = !empty($mapping['user_id']) ? $mapping['user_id'] : 'sub';
@@ -407,8 +505,11 @@ class WSO2AuthService {
 
     $authname = $user_data[$id_key];
 
+    // The provider to use in external auth
+    $provider = ($auth_type === 'operator') ? 'wso2_operator' : 'wso2_auth';
+
     // Try to load the user by external ID.
-    $account = $this->externalAuth->load($authname, 'wso2_auth');
+    $account = $this->externalAuth->load($authname, $provider);
 
     // If account is not found by external authentication, we need to check if the user
     // already exists in Drupal by checking the email/username
@@ -432,7 +533,7 @@ class WSO2AuthService {
 
           // Link this user to the WSO2 authname
           try {
-            $this->externalAuth->linkExistingAccount($authname, 'wso2_auth', $existing_user);
+            $this->externalAuth->linkExistingAccount($authname, $provider, $existing_user);
             $this->logger->notice('WSO2 Auth: Linked existing user @user with WSO2 ID @id', [
               '@user' => $existing_user->getAccountName(),
               '@id' => $authname,
@@ -459,7 +560,7 @@ class WSO2AuthService {
 
             // Link this user to the WSO2 authname
             try {
-              $this->externalAuth->linkExistingAccount($authname, 'wso2_auth', $existing_user);
+              $this->externalAuth->linkExistingAccount($authname, $provider, $existing_user);
               $this->logger->notice('WSO2 Auth: Linked existing user @user with WSO2 ID @id', [
                 '@user' => $existing_user->getAccountName(),
                 '@id' => $authname,
@@ -478,8 +579,13 @@ class WSO2AuthService {
       }
     }
 
+    // Check if auto-registration is enabled for this auth type
+    $auto_register = ($auth_type === 'operator')
+      ? $config->get('operator.auto_register')
+      : $config->get('citizen.auto_register');
+
     // If still no account is found and auto-registration is enabled, register a new user.
-    if (!$account && $config->get('citizen.auto_register')) {
+    if (!$account && $auto_register) {
       // Prepare user data.
       $user_info = [];
 
@@ -496,7 +602,8 @@ class WSO2AuthService {
       }
       else {
         // Generate a username based on the ID if no mapping is available.
-        $user_info['name'] = 'wso2_' . substr($authname, 0, 20);
+        $prefix = ($auth_type === 'operator') ? 'wso2op_' : 'wso2_';
+        $user_info['name'] = $prefix . substr($authname, 0, 20);
       }
 
       // Check if the username already exists and modify it if necessary
@@ -515,14 +622,14 @@ class WSO2AuthService {
 
       try {
         // Register the user.
-        $account = $this->externalAuth->register($authname, 'wso2_auth', $user_info);
+        $account = $this->externalAuth->register($authname, $provider, $user_info);
 
         // Set additional user fields.
         if ($account) {
-          $this->updateUserFields($account, $user_data);
+          $this->updateUserFields($account, $user_data, $mapping);
 
           // Assign the default role if configured
-          $this->assignUserRole($account);
+          $this->assignUserRole($account, $auth_type);
 
           $this->logger->notice('WSO2 Auth: New user registered with ID @id', [
             '@id' => $account->id(),
@@ -538,16 +645,16 @@ class WSO2AuthService {
     }
     elseif ($account) {
       // Update existing user fields if needed.
-      $this->updateUserFields($account, $user_data);
+      $this->updateUserFields($account, $user_data, $mapping);
     }
 
     if ($account) {
       // Login the user.
       try {
-        $this->externalAuth->userLoginFinalize($account, $authname, 'wso2_auth');
+        $this->externalAuth->userLoginFinalize($account, $authname, $provider);
 
         // Invoke hook_wso2_auth_post_login().
-        \Drupal::moduleHandler()->invokeAll('wso2_auth_post_login', [$account, $user_data]);
+        \Drupal::moduleHandler()->invokeAll('wso2_auth_post_login', [$account, $user_data, $auth_type]);
 
         return $account;
       }
@@ -569,11 +676,17 @@ class WSO2AuthService {
    *   The user account.
    * @param array $user_data
    *   The user data from WSO2.
+   * @param array $mapping
+   *   The field mapping configuration.
    */
-  protected function updateUserFields($account, array $user_data) {
-    $config = $this->configFactory->get('wso2_auth.settings');
-    $mapping = $config->get('citizen.mapping');
+  protected function updateUserFields($account, array $user_data, array $mapping = []) {
     $updated = FALSE;
+
+    // If mapping is not provided, get it from config
+    if (empty($mapping)) {
+      $config = $this->configFactory->get('wso2_auth.settings');
+      $mapping = $config->get('citizen.mapping');
+    }
 
     // Update first name if available.
     $first_name_key = !empty($mapping['first_name']) ? $mapping['first_name'] : 'given_name';
@@ -603,6 +716,12 @@ class WSO2AuthService {
       $updated = TRUE;
     }
 
+    // Update additional fields for operators if available
+    if (!empty($user_data['groups']) && $account->hasField('field_user_groups')) {
+      $account->set('field_user_groups', $user_data['groups']);
+      $updated = TRUE;
+    }
+
     // Save the account if it was updated.
     if ($updated) {
       $account->save();
@@ -614,15 +733,23 @@ class WSO2AuthService {
    *
    * @param \Drupal\user\UserInterface $account
    *   The user account.
+   * @param string $auth_type
+   *   The authentication type (citizen or operator).
    */
-  protected function assignUserRole($account) {
+  protected function assignUserRole($account, $auth_type = 'citizen') {
     $config = $this->configFactory->get('wso2_auth.settings');
-    $role = $config->get('citizen.user_role');
+
+    // Get the role based on auth type
+    $role = ($auth_type === 'operator')
+      ? $config->get('operator.user_role')
+      : $config->get('citizen.user_role');
 
     // Only assign a role if a non-default role is configured
     if (!empty($role) && $role != 'none') {
       // Check if user already has any of the excluded roles
-      $roles_to_exclude = $config->get('citizen.roles_to_exclude');
+      $roles_to_exclude = ($auth_type === 'operator')
+        ? [] // No excluded roles for operators currently
+        : $config->get('citizen.roles_to_exclude');
 
       $has_excluded_role = FALSE;
       if (!empty($roles_to_exclude)) {

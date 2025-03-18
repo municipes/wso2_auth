@@ -1,0 +1,36 @@
+{#
+/**
+ * @file
+ * Default theme implementation to display a WSO2 Auth login block.
+ *
+ * Available variables:
+ * - citizen_login: Citizen login button information.
+ *   - url: The login URL.
+ *   - label: The button label.
+ * - operator_login: Operator login button information.
+ *   - url: The login URL.
+ *   - label: The button label.
+ * - show_logo: Whether to show the SPID/CIE logo.
+ */
+#}
+<div class="wso2-auth-login-block">
+  {% if show_logo %}
+    <div class="wso2-auth-logo">
+      <img src="/{{ base_path ~ directory }}/images/spid-logo.svg" alt="{{ 'SPID/CIE Logo'|t }}" />
+    </div>
+  {% endif %}
+
+  <div class="wso2-auth-buttons">
+    {% if citizen_login %}
+      <div class="wso2-auth-button citizen-login">
+        <a href="{{ citizen_login.url }}" class="wso2-auth-link">{{ citizen_login.label }}</a>
+      </div>
+    {% endif %}
+
+    {% if operator_login %}
+      <div class="wso2-auth-button operator-login">
+        <a href="{{ operator_login.url }}" class="wso2-auth-link operator">{{ operator_login.label }}</a>
+      </div>
+    {% endif %}
+  </div>
+</div>

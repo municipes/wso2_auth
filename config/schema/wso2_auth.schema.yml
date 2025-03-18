@@ -30,68 +30,106 @@ wso2_auth.settings:
     debug:
       type: boolean
       label: 'Enable debug mode'
+    auth_server_url:
+      type: string
+      label: 'Authentication server URL'
 
     # Citizen Settings
-    citizen.client_id:
-      type: string
-      label: 'Client ID'
-    citizen.client_secret:
-      type: string
-      label: 'Client Secret'
-    citizen.scope:
-      type: string
-      label: 'Scope'
-    citizen.auto_register:
-      type: boolean
-      label: 'Auto-register users'
-    citizen.user_role:
-      type: string
-      label: 'Role assigned to registered user'
-    citizen.roles_to_exclude:
-      type: sequence
-      label: 'Roles to check'
-      sequence:
-        type: string
-        label: 'Role'
-    citizen.mapping:
+    citizen:
       type: mapping
-      label: 'Field mappings'
+      label: 'Citizen authentication settings'
       mapping:
+        client_id:
+          type: string
+          label: 'Client ID'
+        client_secret:
+          type: string
+          label: 'Client Secret'
+        scope:
+          type: string
+          label: 'Scope'
+        auto_register:
+          type: boolean
+          label: 'Auto-register users'
+        user_role:
+          type: string
+          label: 'Role assigned to registered user'
+        roles_to_exclude:
+          type: sequence
+          label: 'Roles to check'
+          sequence:
+            type: string
+            label: 'Role'
+        mapping:
+          type: mapping
+          label: 'Field mappings'
+          mapping:
+            username:
+              type: string
+              label: 'Username field'
+            email:
+              type: string
+              label: 'Email field'
+            first_name:
+              type: string
+              label: 'First name field'
+            last_name:
+              type: string
+              label: 'Last name field'
+            user_id:
+              type: string
+              label: 'User ID field'
+            fiscal_code:
+              type: string
+              label: 'Fiscal code field'
+            mobile_phone:
+              type: string
+              label: 'Mobile phone field'
+
+    # Operator Settings
+    operator:
+      type: mapping
+      label: 'Operator authentication settings'
+      mapping:
+        enabled:
+          type: boolean
+          label: 'Enable operator authentication'
+        client_id:
+          type: string
+          label: 'Client ID'
+        client_secret:
+          type: string
+          label: 'Client secret'
+        scope:
+          type: string
+          label: 'Scope'
+        ag_entity_id:
+          type: string
+          label: 'Entity ID (agEntityId)'
+        ente:
+          type: string
+          label: 'Entity code'
+        app:
+          type: string
+          label: 'Application code'
         username:
           type: string
-          label: 'Username field'
-        email:
+          label: 'JWT username'
+        password:
           type: string
-          label: 'Email field'
-        first_name:
+          label: 'JWT password'
+        role_population:
           type: string
-          label: 'First name field'
-        last_name:
+          label: 'Role population rules'
+        auto_register:
+          type: boolean
+          label: 'Auto-register users'
+        user_role:
           type: string
-          label: 'Last name field'
-        user_id:
+          label: 'Default role'
+        privileges_url:
           type: string
-          label: 'User ID field'
-        fiscal_code:
+          label: 'Privileges service URL'
+        privileges_stage_url:
           type: string
-          label: 'Fiscal code field'
-        mobile_phone:
-          type: string
-          label: 'Mobile phone field'
-
-    # Operator Settings (placeholders for future implementation)
-    operator_client_id:
-      type: string
-      label: 'Operator Client ID'
-    operator_client_secret:
-      type: string
-      label: 'Operator Client Secret'
-    operator_ente:
-      type: string
-      label: 'Operator Entity Code'
-    operator_app:
-      type: string
-      label: 'Operator Application Code'
-    operator_role_population:
-      type: string
-      label: 'Operator Role Population Rules'
+          label: 'Privileges service staging URL'

@@ -167,6 +167,14 @@ function wso2_auth_theme() {
       ],
       'template' => 'wso2-auth-status-block',
     ],
+    'wso2_auth_login_block' => [
+      'variables' => [
+        'citizen_login' => NULL,
+        'operator_login' => NULL,
+        'show_logo' => TRUE,
+      ],
+      'template' => 'wso2-auth-login-block',
+    ],
   ];
 }
 

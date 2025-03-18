@@ -31,10 +31,11 @@ wso2_auth.settings.operator:
     _permission: 'administer wso2 authentication'
 
 wso2_auth.authorize:
-  path: '/wso2-auth/authorize'
+  path: '/wso2-auth/authorize/{type}'
   defaults:
     _controller: '\Drupal\wso2_auth\Controller\WSO2AuthController::authorize'
     _title: 'Authorize with WSO2'
+    type: 'citizen'
   requirements:
     _access: 'TRUE'
 
@@ -55,10 +56,11 @@ wso2_auth.logout:
     _user_is_logged_in: 'TRUE'
 
 wso2_auth.check_session:
-  path: '/wso2-auth/check-session'
+  path: '/wso2-auth/check-session/{type}'
   defaults:
-    _controller: '\Drupal\wso2_auth\Controller\CheckSessionController::checkSession'
+    _controller: '\Drupal\wso2_auth\Controller\WSO2AuthController::checkSession'
     _title: 'Check WSO2 Session'
+    type: 'citizen'
   requirements:
     _access: 'TRUE'
   options:
