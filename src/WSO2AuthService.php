@@ -253,7 +253,6 @@ class WSO2AuthService {
     $config = $this->configFactory->get('wso2_auth.settings');
 
     // Store the destination in the session.
-    // This is where the user will be redirected AFTER successful authentication
     if (!empty($destination)) {
       $this->session->set('wso2_auth_destination', $destination);
 
@@ -269,17 +268,21 @@ class WSO2AuthService {
     // Generate the state parameter.
     $state = $this->generateState();
 
-    // Get the authentication server URL from the environment helper
+    // Get the authentication server URL and endpoint
     $auth_server_url = $this->environmentHelper->getAuthServerUrl();
-
-    // Get the auth endpoint from the environment helper and append it to the base URL
     $auth_endpoint = $this->environmentHelper->getAuthEndpoint();
     $full_auth_url = $auth_server_url . $auth_endpoint;
 
-    // Get the redirect URI, using the destination if provided
-    $redirect_uri = $this->getRedirectUri($destination);
+    // Usa SEMPRE l'URL di callback standard, MAI la destinazione come redirect_uri
+    $redirect_uri = Url::fromRoute('wso2_auth.callback')
+      ->setAbsolute()
+      ->toString();
 
-    // Get the client ID and secret based on authentication type
+    $this->logger->debug('WSO2 Auth: Using callback URI: @uri', [
+      '@uri' => $redirect_uri,
+    ]);
+
+    // Get other parameters based on authentication type
     $client_id = ($type === 'operator')
       ? $config->get('operator.client_id')
       : $config->get('citizen.client_id');
@@ -301,28 +304,26 @@ class WSO2AuthService {
       'agEntityId' => $ag_entity_id,
       'client_id' => $client_id,
       'client_secret' => $client_secret,
-      'redirect_uri' => $redirect_uri, // This must be the callback URL, not the destination
+      'redirect_uri' => $redirect_uri,
       'response_type' => 'code',
       'scope' => $scope,
       'state' => $state,
     ];
 
-    // For operator authentication, add extra parameters if needed
+    // Special parameters for operators if needed
     if ($type === 'operator') {
-      // Add a parameter to identify this as a special auth flow for operators
       $params['isAuthOperator'] = 'yes';
     }
 
-    // Log the full authorization parameters for debugging
+    // Log the params
     $this->logger->debug('WSO2 Auth: Authorization parameters: @params', [
       '@params' => print_r($params, TRUE),
     ]);
 
-    // Allow other modules to alter the authorization URL.
+    // Build the final URL
     $built_url = $full_auth_url . '?' . http_build_query($params);
     \Drupal::moduleHandler()->alter('wso2_auth_authorization_url', $built_url, $params);
 
-    // Log the final built URL for debugging
     $this->logger->debug('WSO2 Auth: Built authorization URL: @url', [
       '@url' => $built_url,
     ]);
