@@ -1,0 +1,23 @@
+{
+  "name": "municipes/ws02_auth",
+  "description": "Autenticazione WSO2.",
+  "type": "drupal-module",
+  "license": "GPL-3.0-only",
+  "homepage": "https://github.com/municipes/wso2_auth",
+  "authors": [
+      {
+          "name": "Maurizio Cavalletti",
+          "homepage":"https://www.drupal.org/u/maurizio_akabit",
+          "role": "Maintainer"
+      }
+  ],
+  "support": {
+      "issues": "https://github.com/municipes/wso2_auth/issues",
+      "source": "https://github.com/municipes/wso2_auth"
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "require": {
+      "drupal/externalauth": "^2.0"
+  }
+}
