@@ -14,6 +14,16 @@
       if (once('wso2-auto-login', 'body', context).length) {
         // Only check for anonymous users (not logged in yet)
         if (drupalSettings.user && drupalSettings.user.uid === 0) {
+          // Check if we're already in a redirect process (to avoid loops)
+          if (sessionStorage.getItem('wso2_auth_redirect_in_progress') === 'true') {
+            console.log('WSO2 redirect already in progress, skipping check');
+            // Clear the flag after a while (in case something went wrong)
+            setTimeout(function() {
+              sessionStorage.removeItem('wso2_auth_redirect_in_progress');
+            }, 5000);
+            return;
+          }
+
           // Check the session status
           checkSessionStatus();
         } else {

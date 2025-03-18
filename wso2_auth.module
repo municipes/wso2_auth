@@ -36,6 +36,9 @@ function wso2_auth_page_attachments(array &$attachments) {
     if (strpos($current_path, '/wso2-auth/') === 0) {
       return;
     }
+    if (strpos($current_path, '/wso2silfi/') === 0) {
+      return;
+    }
 
     // Add JavaScript for auto-login
     $attachments['#attached']['library'][] = 'wso2_auth/auto_login';
@@ -77,6 +80,9 @@ function wso2_auth_page_top(array &$page_top) {
   if (strpos($current_path, '/wso2-auth/') === 0) {
     return;
   }
+  if (strpos($current_path, '/wso2silfi/') === 0) {
+    return;
+  }
 
   // If user is already authenticated in Drupal, no need to check WSO2
   if (!\Drupal::currentUser()->isAnonymous()) {
@@ -110,15 +116,24 @@ function wso2_auth_page_top(array &$page_top) {
     return;
   }
 
+  // Get the WSO2 Auth service
+  $service = \Drupal::service('wso2_auth.authentication');
+
+  // IMPORTANTE: Prima di fare il redirect, verifichiamo se l'utente ha una sessione attiva in WSO2
+  if (!$service->isUserAuthenticated()) {
+    // L'utente non ha una sessione attiva con WSO2, quindi non facciamo il redirect
+    if ($config->get('debug')) {
+      \Drupal::logger('wso2_auth')->debug('No active WSO2 session detected, skipping auto-login.');
+    }
+    return;
+  }
+
   // Mark that we're attempting an auto-login
   $session->set('wso2_auth_auto_login_attempt', TRUE);
 
-  // Redirect to authorization endpoint to see if user is already logged in
-  $service = \Drupal::service('wso2_auth.authentication');
-
   // Log for debugging
   if ($config->get('debug')) {
-    \Drupal::logger('wso2_auth')->debug('Initiating auto-login check. Current path: @path', [
+    \Drupal::logger('wso2_auth')->debug('Active WSO2 session detected. Initiating auto-login for current path: @path', [
       '@path' => $current_path,
     ]);
   }

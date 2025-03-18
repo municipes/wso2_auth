@@ -697,35 +697,62 @@ class WSO2AuthService {
    *   TRUE if the user is already authenticated with WSO2.
    */
   public function isUserAuthenticated() {
-    // Check if the user has a valid WSO2 session.
-    $wso2_session = $this->session->get('wso2_auth_session');
     $config = $this->configFactory->get('wso2_auth.settings');
+    $debug = $config->get('debug');
 
-    if ($config->get('debug')) {
-      $this->logger->debug('WSO2 Auth: Checking if user is authenticated. Session: @session', [
-        '@session' => !empty($wso2_session) ? 'exists' : 'not exists',
+    // Check first if we already have a valid session stored
+    $wso2_session = $this->session->get('wso2_auth_session');
+
+    if ($debug) {
+      $this->logger->debug('WSO2 Auth: Checking if user has a stored session: @has_session', [
+        '@has_session' => !empty($wso2_session) ? 'yes' : 'no',
       ]);
     }
 
     if (!empty($wso2_session) && !empty($wso2_session['access_token']) && !empty($wso2_session['expires'])) {
       // Check if the token has expired.
       if ($wso2_session['expires'] > time()) {
-        if ($config->get('debug')) {
-          $this->logger->debug('WSO2 Auth: User has a valid session.');
+        if ($debug) {
+          $this->logger->debug('WSO2 Auth: User has a valid stored session.');
         }
         return TRUE;
       }
-      else {
-        if ($config->get('debug')) {
-          $this->logger->debug('WSO2 Auth: Token has expired.');
-        }
+      elseif ($debug) {
+        $this->logger->debug('WSO2 Auth: User has a stored session but the token has expired.');
       }
     }
 
-    // Check if we can silently authenticate with WSO2 (cookie-based session)
-    // This would require checking for WSO2 cookies or other session indicators
-    // Alternatively, we can just attempt the authorization flow and see if it works
+    // Se non abbiamo una sessione in Drupal, possiamo provare a verificare
+    // se ci sono cookie WSO2 che indicano una sessione attiva
+    // Questa logica dipende da come WSO2 gestisce i cookie di sessione
 
-    return FALSE;
+    // Esempio: verifica la presenza di un cookie specifico di WSO2
+    $request = \Drupal::request();
+    $cookies = $request->cookies;
+
+    // Verifica i cookie per rilevare una possibile sessione WSO2
+    // Nota: i nomi effettivi dei cookie dipendono dalla configurazione di WSO2
+    $wso2_cookie_names = ['commonAuthId', 'samlssoTokenId', 'JSESSIONID'];
+    $has_wso2_cookie = FALSE;
+
+    foreach ($wso2_cookie_names as $cookie_name) {
+      if ($cookies->has($cookie_name)) {
+        $has_wso2_cookie = TRUE;
+        if ($debug) {
+          $this->logger->debug('WSO2 Auth: Found WSO2 cookie @cookie', [
+            '@cookie' => $cookie_name,
+          ]);
+        }
+        break;
+      }
+    }
+
+    // Se non troviamo un cookie specifico di WSO2, possiamo assumerere che l'utente
+    // non abbia una sessione attiva con WSO2
+    if (!$has_wso2_cookie && $debug) {
+      $this->logger->debug('WSO2 Auth: No WSO2 session cookies found.');
+    }
+
+    return $has_wso2_cookie;
   }
 }
