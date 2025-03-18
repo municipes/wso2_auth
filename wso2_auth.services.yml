@@ -1,0 +1,29 @@
+services:
+  wso2_auth.environment_helper:
+    class: Drupal\wso2_auth\Helper\WSO2EnvironmentHelper
+    arguments:
+      - '@config.factory'
+
+  wso2_auth.authentication:
+    class: Drupal\wso2_auth\WSO2AuthService
+    arguments:
+      - '@http_client'
+      - '@config.factory'
+      - '@state'
+      - '@logger.channel.wso2_auth'
+      - '@externalauth.externalauth'
+      - '@current_user'
+      - '@messenger'
+      - '@request_stack'
+      - '@session'
+      - '@wso2_auth.environment_helper'
+
+  logger.channel.wso2_auth:
+    parent: logger.channel_base
+    arguments: ['wso2_auth']
+
+  wso2_auth.user_auth_subscriber:
+    class: Drupal\wso2_auth\EventSubscriber\WSO2AuthUserLoginSubscriber
+    arguments: ['@wso2_auth.authentication', '@current_user', '@config.factory']
+    tags:
+      - { name: event_subscriber }

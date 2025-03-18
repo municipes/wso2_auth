@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   viewBox="0 0 480.00001 129.60001"
+   height="129.60001"
+   width="480"
+   id="svg2"
+   version="1.1">
+  <metadata
+     id="metadata8">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs6" />
+  <g
+     style="display:inline"
+     id="layer2">
+    <rect
+       y="0"
+       x="0"
+       height="129.60001"
+       width="480"
+       id="rect3338"
+       style="fill:#ffffff" />
+  </g>
+  <g
+     style="display:inline"
+     id="layer1">
+    <rect
+       ry="0"
+       rx="0"
+       y="91.980774"
+       x="4.3425498"
+       height="33.476482"
+       width="471.41644"
+       id="rect3358"
+       style="fill:#06c" />
+    <path
+       id="path3353"
+       d="m 119.78145,25.875451 c -9.42573,0 -15.88909,5.76713 -15.88909,15.24523 v 17.1308 h 9.42572 V 40.1778 c 0,-5.17166 3.15617,-7.59703 6.4634,-7.59703 3.30722,0 6.46338,2.42537 6.46338,7.59703 v 18.07368 h 9.42575 V 41.12068 c 0,-9.4781 -6.46339,-15.24523 -15.88916,-15.24523 z M 93.019045,81.81856 H 83.442779 V 26.771329 h 9.576266 z M 285.92761,26.771329 v 10.02214 h 14.94627 V 81.81856 h 9.72782 V 36.793469 h 14.94629 v -10.02214 z m -169.87568,0 -17.95219,55.047231 h 10.52102 l 2.70528,-9.57574 h 19.54175 l 2.55426,9.57574 h 10.52103 L 126.89413,26.771329 Z m 56.62544,0 v 55.047231 h 9.57577 V 60.21124 h 9.12372 c 10.22012,0 18.55166,-4.52624 18.55166,-16.98477 0,-12.45855 -8.33154,-16.46514 -18.55166,-16.46514 z m 173.64212,0 v 55.047231 h 9.57628 V 58.32547 h 6.16098 l 10.97273,23.49309 h 11.00579 L 373.38554,57.87424 c 6.3135,-1.95959 10.82171,-7.28813 10.82171,-14.87392 0,-12.15765 -8.33211,-16.18899 -18.5516,-16.18899 z M 58.027702,26.922442 c -17.802321,0 -26.885575,13.35878 -26.885575,27.46272 0,14.254 8.93217,27.88088 26.88557,27.88088 17.802328,0 26.735038,-13.62688 26.735038,-27.88088 0,-14.10394 -9.08325,-27.46272 -26.735038,-27.46272 z M 111.13507,47.17379 c 0,0 0.0991,0.82784 0.15052,1.2045 l 6.01046,22.99879 h -12.6761 l 6.16148,-22.99879 c 0.0514,-0.37666 0.35364,-1.2045 0.35364,-1.2045 z m 71.53682,0.75122 h 9.12372 c 6.16339,0 9.87836,2.85689 9.87836,8.12063 0,5.26376 -3.71497,8.42259 -9.87836,8.42259 h -9.12372 z m 173.64212,0.15097 h 9.12371 c 6.16341,0 9.87837,2.55493 9.87837,7.81866 0,5.11272 -3.71493,8.12061 -9.87837,8.12061 h -9.12371 z M 58.027702,37.39693 c 10.520986,0 15.180685,9.73059 15.180685,17.14031 0,7.40971 -4.659699,17.29132 -15.180685,17.29132 -10.520986,0 -15.33117,-9.88161 -15.33117,-17.29132 0,-7.40972 4.810184,-17.14031 15.33117,-17.14031 z"
+       style="fill:#06c;fill-opacity:1" />
+    <text
+       id="text3361"
+       y="117.31879"
+       x="239.6936"
+       style="font-style:normal;font-weight:normal;font-size:40px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:25px;font-family:sans-serif;-inkscape-font-specification:sans-serif;text-align:center;text-anchor:middle;fill:#ffffff"
+         y="117.31879"
+         x="239.6936"
+         id="tspan3363">Sistema Pubblico di Identità Digitale</tspan></text>
+  </g>
+</svg>

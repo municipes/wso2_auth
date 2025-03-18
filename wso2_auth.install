@@ -1,0 +1,67 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the WSO2 Authentication module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function wso2_auth_install() {
+  // Set default configuration.
+  $config = \Drupal::configFactory()->getEditable('wso2_auth.settings');
+  $config
+    // General settings.
+    ->set('enabled', FALSE)
+    ->set('stage', FALSE)
+    ->set('skip_ssl_verification', FALSE)
+    ->set('ag_entity_id', '')
+    ->set('com_entity_id', '')
+    ->set('picture_enabled', FALSE)
+    ->set('auto_redirect', FALSE)
+    ->set('debug', FALSE)
+
+    // Citizen settings.
+    ->set('client_id', '')
+    ->set('client_secret', '')
+    ->set('scope', 'openid')
+    ->set('auto_register', TRUE)
+    ->set('user_role', 'none')
+    ->set('roles_to_exclude', ['administrator'])
+    ->set('mapping', [
+      'user_id' => 'sub',
+      'username' => 'email',
+      'email' => 'email',
+      'first_name' => 'given_name',
+      'last_name' => 'family_name',
+      'fiscal_code' => 'cn',
+      'mobile_phone' => '',
+    ])
+
+    // Operator settings (placeholders for future implementation).
+    ->set('operator_client_id', '')
+    ->set('operator_client_secret', '')
+    ->set('operator_ente', '')
+    ->set('operator_app', '')
+    ->set('operator_role_population', '')
+
+    ->save();
+
+  // Log the installation.
+  \Drupal::logger('wso2_auth')->notice('WSO2 Authentication module installed.');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function wso2_auth_uninstall() {
+  // Delete module configuration.
+  \Drupal::configFactory()->getEditable('wso2_auth.settings')->delete();
+
+  // Delete any state variables.
+  \Drupal::state()->delete('wso2_auth.last_check');
+
+  // Log the uninstallation.
+  \Drupal::logger('wso2_auth')->notice('WSO2 Authentication module uninstalled.');
+}

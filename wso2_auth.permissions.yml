@@ -1,0 +1,4 @@
+administer wso2 authentication:
+  title: 'Administer WSO2 authentication settings'
+  description: 'Configure WSO2 authentication settings.'
+  restrict access: TRUE

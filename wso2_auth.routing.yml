@@ -1,0 +1,65 @@
+wso2_auth.settings:
+  path: '/admin/config/people/wso2-auth'
+  defaults:
+    _controller: '\Drupal\system\Controller\SystemController::systemAdminMenuBlockPage'
+    _title: 'WSO2 Authentication Settings'
+  requirements:
+    _permission: 'administer wso2 authentication'
+
+wso2_auth.settings.general:
+  path: '/admin/config/people/wso2-auth/general'
+  defaults:
+    _form: '\Drupal\wso2_auth\Form\WSO2AuthGeneralSettingsForm'
+    _title: 'General Settings'
+  requirements:
+    _permission: 'administer wso2 authentication'
+
+wso2_auth.settings.citizen:
+  path: '/admin/config/people/wso2-auth/citizen'
+  defaults:
+    _form: '\Drupal\wso2_auth\Form\WSO2AuthCitizenSettingsForm'
+    _title: 'Citizen Settings'
+  requirements:
+    _permission: 'administer wso2 authentication'
+
+wso2_auth.settings.operator:
+  path: '/admin/config/people/wso2-auth/operator'
+  defaults:
+    _form: '\Drupal\wso2_auth\Form\WSO2AuthOperatorSettingsForm'
+    _title: 'Operator Settings'
+  requirements:
+    _permission: 'administer wso2 authentication'
+
+wso2_auth.authorize:
+  path: '/wso2-auth/authorize'
+  defaults:
+    _controller: '\Drupal\wso2_auth\Controller\WSO2AuthController::authorize'
+    _title: 'Authorize with WSO2'
+  requirements:
+    _access: 'TRUE'
+
+wso2_auth.callback:
+  path: '/wso2-auth/callback'
+  defaults:
+    _controller: '\Drupal\wso2_auth\Controller\WSO2AuthController::callback'
+    _title: 'WSO2 Authentication Callback'
+  requirements:
+    _access: 'TRUE'
+
+wso2_auth.logout:
+  path: '/wso2-auth/logout'
+  defaults:
+    _controller: '\Drupal\wso2_auth\Controller\WSO2AuthController::logout'
+    _title: 'Logout from WSO2'
+  requirements:
+    _user_is_logged_in: 'TRUE'
+
+wso2_auth.check_session:
+  path: '/wso2-auth/check-session'
+  defaults:
+    _controller: '\Drupal\wso2_auth\Controller\CheckSessionController::checkSession'
+    _title: 'Check WSO2 Session'
+  requirements:
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE

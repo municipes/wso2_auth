@@ -1,0 +1,27 @@
+wso2_auth.settings:
+  title: 'WSO2 Authentication'
+  route_name: wso2_auth.settings
+  parent: user.admin_index
+  description: 'Configure WSO2 Authentication settings.'
+  weight: 10
+
+wso2_auth.settings.general:
+  title: 'General Settings'
+  route_name: wso2_auth.settings.general
+  parent: wso2_auth.settings
+  description: 'Configure general WSO2 Authentication settings.'
+  weight: 0
+
+wso2_auth.settings.citizen:
+  title: 'Citizen Settings'
+  route_name: wso2_auth.settings.citizen
+  parent: wso2_auth.settings
+  description: 'Configure WSO2 Authentication settings for citizens.'
+  weight: 10
+
+wso2_auth.settings.operator:
+  title: 'Operator Settings'
+  route_name: wso2_auth.settings.operator
+  parent: wso2_auth.settings
+  description: 'Configure WSO2 Authentication settings for operators.'
+  weight: 20

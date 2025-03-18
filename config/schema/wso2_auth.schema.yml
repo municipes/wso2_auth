@@ -1,0 +1,97 @@
+wso2_auth.settings:
+  type: config_object
+  label: 'WSO2 Authentication settings'
+  mapping:
+    # General Settings
+    enabled:
+      type: boolean
+      label: 'Enable WSO2 Authentication'
+    stage:
+      type: boolean
+      label: 'Use staging environment'
+    skip_ssl_verification:
+      type: boolean
+      label: 'Skip SSL verification'
+    ag_entity_id:
+      type: string
+      label: 'Entity ID (agEntityId)'
+    com_entity_id:
+      type: string
+      label: 'Entity ID (comEntityId)'
+    picture_enabled:
+      type: boolean
+      label: 'Enable picture on login form'
+    auto_redirect:
+      type: boolean
+      label: 'Auto-redirect to WSO2 login'
+    auto_login:
+      type: boolean
+      label: 'Enable auto-login (Single Sign-On)'
+    debug:
+      type: boolean
+      label: 'Enable debug mode'
+
+    # Citizen Settings
+    citizen.client_id:
+      type: string
+      label: 'Client ID'
+    citizen.client_secret:
+      type: string
+      label: 'Client Secret'
+    citizen.scope:
+      type: string
+      label: 'Scope'
+    citizen.auto_register:
+      type: boolean
+      label: 'Auto-register users'
+    citizen.user_role:
+      type: string
+      label: 'Role assigned to registered user'
+    citizen.roles_to_exclude:
+      type: sequence
+      label: 'Roles to check'
+      sequence:
+        type: string
+        label: 'Role'
+    citizen.mapping:
+      type: mapping
+      label: 'Field mappings'
+      mapping:
+        username:
+          type: string
+          label: 'Username field'
+        email:
+          type: string
+          label: 'Email field'
+        first_name:
+          type: string
+          label: 'First name field'
+        last_name:
+          type: string
+          label: 'Last name field'
+        user_id:
+          type: string
+          label: 'User ID field'
+        fiscal_code:
+          type: string
+          label: 'Fiscal code field'
+        mobile_phone:
+          type: string
+          label: 'Mobile phone field'
+
+    # Operator Settings (placeholders for future implementation)
+    operator_client_id:
+      type: string
+      label: 'Operator Client ID'
+    operator_client_secret:
+      type: string
+      label: 'Operator Client Secret'
+    operator_ente:
+      type: string
+      label: 'Operator Entity Code'
+    operator_app:
+      type: string
+      label: 'Operator Application Code'
+    operator_role_population:
+      type: string
+      label: 'Operator Role Population Rules'
