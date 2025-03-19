@@ -1,3 +1,4 @@
+# Configurazione
 wso2_auth.settings:
   path: '/admin/config/people/wso2-auth'
   defaults:
@@ -30,6 +31,7 @@ wso2_auth.settings.operator:
   requirements:
     _permission: 'administer wso2 authentication'
 
+# Autenticazione
 wso2_auth.authorize:
   path: '/wso2-auth/authorize/{type}'
   defaults:
@@ -54,14 +56,3 @@ wso2_auth.logout:
     _title: 'Logout from WSO2'
   requirements:
     _user_is_logged_in: 'TRUE'
-
-wso2_auth.check_session:
-  path: '/wso2-auth/check-session/{type}'
-  defaults:
-    _controller: '\Drupal\wso2_auth\Controller\WSO2AuthController::checkSession'
-    _title: 'Check WSO2 Session'
-    type: 'citizen'
-  requirements:
-    _access: 'TRUE'
-  options:
-    no_cache: TRUE

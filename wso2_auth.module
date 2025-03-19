@@ -6,9 +6,7 @@
  */
 
 use Drupal\Core\Routing\RouteMatchInterface;
-use Drupal\Core\Url;
 use Drupal\Core\Form\FormStateInterface;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
  * Implements hook_help().
@@ -24,161 +22,6 @@ function wso2_auth_help($route_name, RouteMatchInterface $route_match) {
 }
 
 /**
- * Implements hook_page_attachments().
- */
-function wso2_auth_page_attachments(array &$attachments) {
-  $config = \Drupal::config('wso2_auth.settings');
-
-  // Only proceed if auto-login is enabled
-  if ($config->get('auto_login') && $config->get('enabled')) {
-    // Don't check on auth-related paths to avoid loops
-    $current_path = \Drupal::service('path.current')->getPath();
-    if (strpos($current_path, '/wso2-auth/') === 0) {
-      return;
-    }
-    if (strpos($current_path, '/wso2silfi/') === 0) {
-      return;
-    }
-
-    // Add JavaScript for auto-login
-    $attachments['#attached']['library'][] = 'wso2_auth/auto_login';
-
-    // Add settings for JavaScript
-    $attachments['#attached']['drupalSettings']['wso2_auth'] = [
-      'checkSessionUrl' => Url::fromRoute('wso2_auth.check_session')->toString(),
-      'loginUrl' => Url::fromRoute('wso2_auth.authorize')->toString(),
-    ];
-  }
-}
-
-/**
- * Implements hook_page_top().
- *
- * Check for auto-login on each page load if the user is not already logged in.
- */
-function wso2_auth_page_top(array &$page_top) {
-  // Get the configuration
-  $config = \Drupal::config('wso2_auth.settings');
-
-  // Only proceed if auto-login is enabled
-  if (!$config->get('auto_login') || !$config->get('enabled')) {
-    return;
-  }
-
-  // Skip for AJAX requests
-  if (\Drupal::request()->isXmlHttpRequest()) {
-    return;
-  }
-
-  // Skip for POST requests (form submissions)
-  if (\Drupal::request()->isMethod('POST')) {
-    return;
-  }
-
-  // Don't check on auth-related paths to avoid loops
-  $current_path = \Drupal::service('path.current')->getPath();
-  if (strpos($current_path, '/wso2-auth/') === 0) {
-    return;
-  }
-  if (strpos($current_path, '/wso2silfi/') === 0) {
-    return;
-  }
-
-  // If user is already authenticated in Drupal, no need to check WSO2
-  if (!\Drupal::currentUser()->isAnonymous()) {
-    return;
-  }
-
-  // Check if we need to perform auto-login
-  $session = \Drupal::request()->getSession();
-
-  // Get the auto_login_checked value
-  $auto_login_checked = $session->get('wso2_auth_auto_login_checked');
-
-  // Get the timestamp of last check
-  $last_check_time = $session->get('wso2_auth_last_check_time', 0);
-  $current_time = time();
-
-  // Check if we've already tried auto-login recently (within the last 5 minutes)
-  if ($auto_login_checked && ($current_time - $last_check_time) < 300) {
-    return;
-  }
-
-  // Mark that we've checked auto-login for this session and store the current time
-  $session->set('wso2_auth_auto_login_checked', TRUE);
-  $session->set('wso2_auth_last_check_time', $current_time);
-
-  // Check if we have an active auto-login attempt in progress
-  $auto_login_attempt = $session->get('wso2_auth_auto_login_attempt');
-  if ($auto_login_attempt) {
-    // If we've already tried to auto-login in this session, don't try again
-    // This prevents redirect loops
-    return;
-  }
-
-  // Get the WSO2 Auth service
-  $service = \Drupal::service('wso2_auth.authentication');
-
-  // IMPORTANTE: Prima di fare il redirect, verifichiamo se l'utente ha una sessione attiva in WSO2
-  if (!$service->isUserAuthenticated()) {
-    // L'utente non ha una sessione attiva con WSO2, quindi non facciamo il redirect
-    if ($config->get('debug')) {
-      \Drupal::logger('wso2_auth')->debug('No active WSO2 session detected, skipping auto-login.');
-    }
-    return;
-  }
-
-  // Mark that we're attempting an auto-login
-  $session->set('wso2_auth_auto_login_attempt', TRUE);
-
-  // Log for debugging
-  if ($config->get('debug')) {
-    \Drupal::logger('wso2_auth')->debug('Active WSO2 session detected. Initiating auto-login for current path: @path', [
-      '@path' => $current_path,
-    ]);
-  }
-
-  // Initiate the authorization flow, passing current path as destination
-  $url = $service->getAuthorizationUrl($current_path);
-  $response = new \Symfony\Component\HttpFoundation\RedirectResponse($url);
-  $response->send();
-  exit;
-}
-
-/**
- * Implements hook_theme().
- */
-function wso2_auth_theme() {
-  return [
-    'wso2_auth_login_button' => [
-      'variables' => [
-        'url' => NULL,
-        'label' => t('Log in with WSO2'),
-      ],
-      'template' => 'wso2-auth-login-button',
-    ],
-    'wso2_auth_status_block' => [
-      'variables' => [
-        'environment' => 'production',
-        'authenticated' => FALSE,
-        'login_url' => NULL,
-        'logout_url' => NULL,
-        'is_admin' => FALSE,
-      ],
-      'template' => 'wso2-auth-status-block',
-    ],
-    'wso2_auth_login_block' => [
-      'variables' => [
-        'citizen_login' => NULL,
-        'operator_login' => NULL,
-        'show_logo' => TRUE,
-      ],
-      'template' => 'wso2-auth-login-block',
-    ],
-  ];
-}
-
-/**
  * Implements hook_form_FORM_ID_alter().
  */
 function wso2_auth_form_user_login_form_alter(&$form, FormStateInterface $form_state, $form_id) {
@@ -190,21 +33,37 @@ function wso2_auth_form_user_login_form_alter(&$form, FormStateInterface $form_s
     return;
   }
 
-  // Add a button/link to the form for WSO2 login.
-  $form['wso2_auth_login'] = [
-    '#theme' => 'wso2_auth_login_button',
-    '#url' => Url::fromRoute('wso2_auth.authorize')->toString(),
+  // Get configuration
+  $config = \Drupal::config('wso2_auth.settings');
+
+  // Add buttons for citizen and operator login
+  $form['wso2_auth_citizen'] = [
+    '#type' => 'link',
+    '#title' => t('Login with SPID/CIE (Citizen)'),
+    '#url' => \Drupal\Core\Url::fromRoute('wso2_auth.authorize', ['type' => 'citizen']),
+    '#attributes' => [
+      'class' => ['button', 'button--primary', 'wso2-auth-button', 'citizen-login'],
+    ],
     '#weight' => -100,
   ];
 
-  // Add CSS.
-  $form['#attached']['library'][] = 'wso2_auth/wso2_auth.login';
+  // Add operator button if operator auth is enabled
+  if ($config->get('operator.enabled')) {
+    $form['wso2_auth_operator'] = [
+      '#type' => 'link',
+      '#title' => t('Login as Operator'),
+      '#url' => \Drupal\Core\Url::fromRoute('wso2_auth.authorize', ['type' => 'operator']),
+      '#attributes' => [
+        'class' => ['button', 'button--secondary', 'wso2-auth-button', 'operator-login'],
+      ],
+      '#weight' => -99,
+    ];
+  }
 
-  // Add WSO2 login logo if enabled
-  $config = \Drupal::config('wso2_auth.settings');
+  // Add SPID logo if enabled
   if ($config->get('picture_enabled')) {
     $form['wso2_logo'] = [
-      '#markup' => '<div class="wso2-auth-logo"><img src="/' . drupal_get_path('module', 'wso2_auth') . '/images/spid-logo.svg" alt="WSO2 Login" /></div>',
+      '#markup' => '<div class="wso2-auth-logo"><img src="/' . drupal_get_path('module', 'wso2_auth') . '/images/spid-logo.svg" alt="SPID Login" /></div>',
       '#weight' => -110,
     ];
   }

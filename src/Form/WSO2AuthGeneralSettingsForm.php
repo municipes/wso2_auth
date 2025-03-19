@@ -130,13 +130,6 @@ class WSO2AuthGeneralSettingsForm extends ConfigFormBase {
       '#open' => FALSE,
     ];
 
-    $form['advanced']['auto_redirect'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Auto-redirect to WSO2 login'),
-      '#default_value' => $config->get('auto_redirect') ?? FALSE,
-      '#description' => $this->t('Automatically redirect anonymous users to the WSO2 login page.'),
-    ];
-
     $form['advanced']['auto_login'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Enable auto-login (Single Sign-On)'),
@@ -174,7 +167,6 @@ class WSO2AuthGeneralSettingsForm extends ConfigFormBase {
       ->set('ag_entity_id', $values['ag_entity_id'])
       ->set('com_entity_id', $values['com_entity_id'])
       ->set('picture_enabled', (bool) $values['picture_enabled'])
-      ->set('auto_redirect', (bool) $values['auto_redirect'])
       ->set('auto_login', (bool) $values['auto_login'])
       ->set('debug', (bool) $values['debug'])
       ->save();

@@ -21,9 +21,6 @@ wso2_auth.settings:
     picture_enabled:
       type: boolean
       label: 'Enable picture on login form'
-    auto_redirect:
-      type: boolean
-      label: 'Auto-redirect to WSO2 login'
     auto_login:
       type: boolean
       label: 'Enable auto-login (Single Sign-On)'

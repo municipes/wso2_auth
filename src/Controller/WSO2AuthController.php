@@ -412,37 +412,4 @@ class WSO2AuthController extends ControllerBase {
     // Redirect to the WSO2 logout URL.
     return new TrustedRedirectResponse($logout_url);
   }
-
-  /**
-   * Check session status endpoint.
-   *
-   * @param string $type
-   *   The authentication type (citizen or operator).
-   *
-   * @return \Symfony\Component\HttpFoundation\JsonResponse
-   *   JSON response with authentication status.
-   */
-  public function checkSession($type = 'citizen') {
-    // Return if the module is not configured
-    if (!$this->wso2Auth->isConfigured()) {
-      return new JsonResponse(['authenticated' => FALSE, 'error' => 'WSO2 authentication is not properly configured.']);
-    }
-
-    // For operator authentication, check if it's enabled
-    if ($type === 'operator' && !$this->config('wso2_auth.settings')->get('operator.enabled')) {
-      return new JsonResponse(['authenticated' => FALSE, 'error' => 'Operator authentication is not enabled.']);
-    }
-
-    // Get the current session
-    $session = $this->requestStack->getCurrentRequest()->getSession();
-
-    // Store the auth type in session for the callback
-    $session->set('wso2_auth_type', $type);
-
-    // Check if the user has a valid WSO2 session
-    $isAuthenticated = $this->wso2Auth->isUserAuthenticated();
-
-    // Return the status
-    return new JsonResponse(['authenticated' => $isAuthenticated]);
-  }
 }
