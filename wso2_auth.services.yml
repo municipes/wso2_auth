@@ -22,12 +22,6 @@ services:
     parent: logger.channel_base
     arguments: ['wso2_auth']
 
-  wso2_auth.user_auth_subscriber:
-    class: Drupal\wso2_auth\EventSubscriber\WSO2AuthUserLoginSubscriber
-    arguments: ['@wso2_auth.authentication', '@current_user', '@config.factory']
-    tags:
-      - { name: event_subscriber }
-
   wso2_auth.operator_privileges:
     class: Drupal\wso2_auth\Service\OperatorPrivilegesService
     arguments: ['@http_client', '@config.factory', '@logger.factory', '@request_stack']
