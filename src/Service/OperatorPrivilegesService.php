@@ -56,6 +56,13 @@ class OperatorPrivilegesService {
   protected $endpoint;
 
   /**
+   * Whether debug mode is enabled.
+   *
+   * @var bool
+   */
+  protected $debug;
+
+  /**
    * Constructor for the operator privileges service.
    *
    * @param \GuzzleHttp\ClientInterface $http_client
@@ -86,6 +93,8 @@ class OperatorPrivilegesService {
     else {
       $this->endpoint = $config->get('operator.privileges_url');
     }
+    // Inizializza la variabile debug una sola volta
+    $this->debug = $config->get('debug');
   }
 
   /**

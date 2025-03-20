@@ -39,6 +39,13 @@ class WSO2AuthController extends ControllerBase {
   protected $privilegesService;
 
   /**
+   * Whether debug mode is enabled.
+   *
+   * @var bool
+   */
+  protected $debug;
+
+  /**
    * Constructor for the WSO2 authentication controller.
    *
    * @param \Drupal\wso2_auth\WSO2AuthService $wso2_auth
@@ -56,6 +63,9 @@ class WSO2AuthController extends ControllerBase {
     $this->wso2Auth = $wso2_auth;
     $this->requestStack = $request_stack;
     $this->privilegesService = $privileges_service;
+
+    // Inizializza la variabile debug una sola volta
+    $this->debug = \Drupal::config('wso2_auth.settings')->get('debug');
   }
 
   /**
@@ -98,7 +108,7 @@ class WSO2AuthController extends ControllerBase {
     $destination = $request->query->get('destination');
 
     // Log the destination parameter for debugging
-    if ($destination) {
+    if ($destination && $this->debug) {
       $this->getLogger('wso2_auth')->debug('Destination parameter found in request: @destination', [
         '@destination' => $destination,
       ]);
@@ -108,15 +118,19 @@ class WSO2AuthController extends ControllerBase {
     $url = $this->wso2Auth->getAuthorizationUrl($destination, $type);
 
     // Log the final URL we're redirecting to
-    $this->getLogger('wso2_auth')->debug('Redirecting to WSO2 authorization URL: @url', [
-      '@url' => $url,
-    ]);
+    if ($this->debug) {
+      $this->getLogger('wso2_auth')->debug('Redirecting to WSO2 authorization URL: @url', [
+        '@url' => $url,
+      ]);
+    }
 
     // Try to use a standard RedirectResponse as a test
     // in case there's an issue with TrustedRedirectResponse
     try {
+      if ($this->debug) {
         $this->getLogger('wso2_auth')->debug('Using TrustedRedirectResponse for WSO2 redirect');
         return new TrustedRedirectResponse($url);
+      }
     }
     catch (\Exception $e) {
         $this->getLogger('wso2_auth')->error('Error with TrustedRedirectResponse: @error', [
@@ -142,11 +156,13 @@ class WSO2AuthController extends ControllerBase {
     $code = $request->query->get('code');
     $state = $request->query->get('state');
     $session_state = $request->query->get('session_state');
-    $this->getLogger('wso2_auth')->notice('Received code. Code: @code, State: @state, SessionState: @session_state', [
-      '@code' => $code,
-      '@state' => $state,
-      '@session_state' => $session_state,
-    ]);
+    if ($this->debug) {
+      $this->getLogger('wso2_auth')->notice('Received code. Code: @code, State: @state, SessionState: @session_state', [
+        '@code' => $code,
+        '@state' => $state,
+        '@session_state' => $session_state,
+      ]);
+    }
 
     // Get the session.
     $session = $request->getSession();
@@ -166,6 +182,10 @@ class WSO2AuthController extends ControllerBase {
       // Procedi con la normale verifica dello state come prima
       if (empty($code) || empty($session_state)) {
         $this->messenger()->addError($this->t('Invalid authorization response.'));
+        $this->getLogger('wso2_auth')->error('Invalid authorization response. Code: @code, SessionState: @session_state', [
+          '@code' => $code,
+          '@session_state' => $session_state,
+        ]);
         return new RedirectResponse(Url::fromRoute('<front>')->toString());
       }
     }
@@ -173,6 +193,10 @@ class WSO2AuthController extends ControllerBase {
     // Check if the code and state are available.
     if (empty($code) || empty($state)) {
       $this->messenger()->addError($this->t('Invalid authorization response.'));
+      $this->getLogger('wso2_auth')->error('Invalid authorization response. Code: @code, State: @state', [
+        '@code' => $code,
+        '@state' => $state,
+      ]);
       return new RedirectResponse(Url::fromRoute('<front>')->toString());
     }
 
@@ -183,6 +207,10 @@ class WSO2AuthController extends ControllerBase {
     $tokens = $this->wso2Auth->getTokens($code);
     if (!$tokens) {
       $this->messenger()->addError($this->t('Failed to get access token.'));
+      $this->getLogger('wso2_auth')->error('Failed to get access token. Code: @code, SessionState: @session_state', [
+        '@code' => $code,
+        '@session_state' => $session_state,
+      ]);
       return new RedirectResponse(Url::fromRoute('<front>')->toString());
     }
 
@@ -190,6 +218,9 @@ class WSO2AuthController extends ControllerBase {
     $user_info = $this->wso2Auth->getUserInfo($tokens['access_token']);
     if (!$user_info) {
       $this->messenger()->addError($this->t('Failed to get user information.'));
+      $this->getLogger('wso2_auth')->error('Failed to get user information. AccessToken: @access_token', [
+        '@access_token' => $tokens['access_token'],
+      ]);
       return new RedirectResponse(Url::fromRoute('<front>')->toString());
     }
 
@@ -204,6 +235,8 @@ class WSO2AuthController extends ControllerBase {
       $this->messenger()->addError($this->t('Authentication failed.'));
       return new RedirectResponse(Url::fromRoute('<front>')->toString());
     }
+
+    $session->set('wso2_auth_state', $state);
 
     // Store token information in the session.
     $session->set('wso2_auth_session', [
@@ -222,7 +255,7 @@ class WSO2AuthController extends ControllerBase {
     $session->set('wso2_auth_last_check_time', time());
 
     // Debug log
-    if ($this->config('wso2_auth.settings')->get('debug')) {
+    if ($this->debug) {
       $this->getLogger('wso2_auth')->debug('Successful login for @username. Redirecting to: @destination', [
         '@username' => $account->getAccountName(),
         '@destination' => $destination ?? 'home page',
@@ -317,10 +350,12 @@ class WSO2AuthController extends ControllerBase {
               // Check if the function matches any of our mapped functions
               if (isset($function->funzione) && $function->funzione === $function_name) {
                 $account->addRole($role_id);
-                $this->getLogger('wso2_auth')->debug('Added role @role to operator @operator', [
-                  '@role' => $role_id,
-                  '@operator' => $authname,
-                ]);
+                if ($this->debug) {
+                  $this->getLogger('wso2_auth')->debug('Added role @role to operator @operator', [
+                    '@role' => $role_id,
+                    '@operator' => $authname,
+                  ]);
+                }
                 break;
               }
             }

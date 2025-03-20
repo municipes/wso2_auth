@@ -92,6 +92,13 @@ class WSO2AuthService {
   protected $environmentHelper;
 
   /**
+   * Whether debug mode is enabled.
+   *
+   * @var bool
+   */
+  protected $debug;
+
+  /**
    * Constructor for the WSO2 authentication service.
    *
    * @param \GuzzleHttp\ClientInterface $http_client
@@ -137,6 +144,9 @@ class WSO2AuthService {
     $this->requestStack = $request_stack;
     $this->session = $session;
     $this->environmentHelper = $environment_helper ?: new WSO2EnvironmentHelper($config_factory);
+
+    // Inizializza la variabile debug una sola volta
+    $this->debug = $this->configFactory->get('wso2_auth.settings')->get('debug');
   }
 
   /**
@@ -152,11 +162,13 @@ class WSO2AuthService {
     $client_secret = $config->get('citizen.client_secret');
 
     // Log the configuration status
-    $this->logger->debug('WSO2 Auth configuration status: enabled=@enabled, client_id=@client_id, client_secret=@secret', [
-      '@enabled' => $enabled ? 'true' : 'false',
-      '@client_id' => !empty($client_id) ? 'set' : 'not set',
-      '@secret' => !empty($client_secret) ? 'set' : 'not set',
-    ]);
+    if ($this->debug) {
+      $this->logger->debug('WSO2 Auth configuration status: enabled=@enabled, client_id=@client_id, client_secret=@secret', [
+        '@enabled' => $enabled ? 'true' : 'false',
+        '@client_id' => !empty($client_id) ? 'set' : 'not set',
+        '@secret' => !empty($client_secret) ? 'set' : 'not set',
+      ]);
+    }
 
     return $enabled &&
       !empty($client_id) &&
@@ -170,10 +182,18 @@ class WSO2AuthService {
    *   A random state string.
    */
   public function generateState() {
-    $session_token = $this->session->getId();
-    $random = bin2hex(random_bytes(16));
-    $state = $random . '_' . md5($session_token);
-    $this->session->set('wso2_auth_state_random', $random);
+    // Genera un token casuale
+    $state = bin2hex(random_bytes(16));
+
+    // Memorizzalo nella sessione
+    $this->session->set('wso2_auth_state', $state);
+
+    if ($this->debug) {
+      $this->logger->debug('WSO2 Auth ::generateState: State: @state, Check: @check', [
+        '@state' => $state,
+        '@check' => $this->session->get('wso2_auth_state'),
+      ]);
+    }
     return $state;
   }
 
@@ -186,27 +206,17 @@ class WSO2AuthService {
    * @return bool
    *   TRUE if the state is valid.
    */
-  public function verifyState($returned_state) {
-    $random = $this->session->get('wso2_auth_state_random');
-    // $this->session->remove('wso2_auth_state_random');
+  public function verifyState($returned_state): bool {
+    // Recupera il token memorizzato in sessione e rimuovilo immediatamente
+    $stored_state = $this->session->remove('wso2_auth_state');
 
-    if (empty($random) || empty($returned_state)) {
-      return FALSE;
+    // Verifica 1: Il token esisteva nella sessione?
+    if (empty($stored_state)) {
+        return FALSE;
     }
 
-    list($returned_random, $returned_hash) = explode('_', $returned_state);
-    $this->getLogger('wso2_auth')->notice('::verifyState | ReturnedState: @returned_state,
-      Random: @random, ReturnedRandom: @returned_random,
-      ReturnedHash: @returned_hash, md5: @md5', [
-      '@returned_state' => $returned_state,
-      '@random' => $random,
-      '@returned_random' => $returned_random,
-      '@returned_hash' => $returned_hash,
-      '@md5' => md5($this->session->getId()),
-    ]);
-
-    return $random === $returned_random &&
-          md5($this->session->getId()) === $returned_hash;
+    // Verifica 2: Confronto sicuro contro attacchi timing
+    return hash_equals($stored_state, (string) $returned_state);
   }
 
   /**
@@ -218,7 +228,7 @@ class WSO2AuthService {
    * @return string
    *   The absolute URL for the redirect URI.
    */
-  public function getRedirectUri($destination = '') {
+  public function getRedirectUri($destination = ''): string {
     if (!empty($destination)) {
       // If a destination is provided, construct an absolute URL for it
       // For WSO2 implementation, redirect_uri should be the original page
