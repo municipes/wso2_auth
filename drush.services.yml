@@ -1,6 +1,0 @@
-services:
-  wso2_auth.commands:
-    class: \Drupal\wso2_auth\Commands\WSO2AuthCommands
-    arguments: ['@wso2_auth.authentication']
-    tags:
-      - { name: drush.command }
