@@ -222,38 +222,20 @@ class WSO2AuthService {
   /**
    * Get the redirect URI for OAuth2 callbacks.
    *
-   * @param string $destination
-   *   The original page/destination the user was on.
-   *
    * @return string
    *   The absolute URL for the redirect URI.
    */
-  public function getRedirectUri($destination = ''): string {
-    if (!empty($destination)) {
-      // If a destination is provided, construct an absolute URL for it
-      // For WSO2 implementation, redirect_uri should be the original page
-      $base_url = Url::fromRoute('<front>')->setAbsolute()->toString();
-      // Remove trailing slash from base URL if present
-      $base_url = rtrim($base_url, '/');
-      // Make sure destination starts with a slash
-      $destination = '/' . ltrim($destination, '/');
-      $redirect_uri = $base_url . $destination;
-
-      $this->logger->debug('WSO2 Auth: Custom redirect URI from destination: @uri', [
-        '@uri' => $redirect_uri,
-      ]);
-
-      return $redirect_uri;
-    }
-
-    // Fallback to standard callback path if no destination is provided
+  public function getRedirectUri() {
+    // Sempre usare una URI di callback statica per WSO2
     $callback_url = Url::fromRoute('wso2_auth.callback')
       ->setAbsolute()
       ->toString();
 
-    $this->logger->debug('WSO2 Auth: Default callback redirect URI: @uri', [
-      '@uri' => $callback_url,
-    ]);
+    if ($this->configFactory->get('wso2_auth.settings')->get('debug')) {
+      $this->logger->debug('WSO2 Auth: Usando URI di callback: @uri', [
+        '@uri' => $callback_url,
+      ]);
+    }
 
     return $callback_url;
   }
@@ -272,48 +254,35 @@ class WSO2AuthService {
   public function getAuthorizationUrl($destination = '', $type = 'citizen') {
     $config = $this->configFactory->get('wso2_auth.settings');
 
-    // Store the destination in the session.
+    // Memorizza la destinazione nella sessione per reindirizzarci dopo il login
     if (!empty($destination)) {
       $this->session->set('wso2_auth_destination', $destination);
 
-      // Debug log the destination being stored
-      $this->logger->debug('WSO2 Auth: Storing destination in session: @destination', [
-        '@destination' => $destination,
-      ]);
+      if ($config->get('debug')) {
+        $this->logger->debug('WSO2 Auth: Memorizzata destinazione in sessione: @destination', [
+          '@destination' => $destination,
+        ]);
+      }
     }
 
-    // Store the authentication type in the session
+    // Memorizza il tipo di autenticazione nella sessione
     $this->session->set('wso2_auth_type', $type);
 
-    // Generate the state parameter.
+    // Genera il parametro state
     $state = $this->generateState();
-    // Debug log the state parameter.
-    $this->logger->debug('WSO2 Auth ::getAuthorizationUrl: Generated state parameter: @state', [
-      '@state' => $state,
-    ]);
 
-    // Get the authentication server URL and endpoint
+    // Ottieni URL e endpoint del server di autenticazione
     $auth_server_url = $this->environmentHelper->getAuthServerUrl();
     $auth_endpoint = $this->environmentHelper->getAuthEndpoint();
     $full_auth_url = $auth_server_url . $auth_endpoint;
 
-    // Usa SEMPRE l'URL di callback standard, MAI la destinazione come redirect_uri
-    $redirect_uri = Url::fromRoute('wso2_auth.callback')
-      ->setAbsolute()
-      ->toString();
+    // Usa SEMPRE l'URI di callback standard
+    $redirect_uri = $this->getRedirectUri();
 
-    $this->logger->debug('WSO2 Auth: Using callback URI: @uri', [
-      '@uri' => $redirect_uri,
-    ]);
-
-    // Get other parameters based on authentication type
+    // Ottieni i parametri in base al tipo di autenticazione
     $client_id = ($type === 'operator')
       ? $config->get('operator.client_id')
       : $config->get('citizen.client_id');
-
-    $client_secret = ($type === 'operator')
-      ? $config->get('operator.client_secret')
-      : $config->get('citizen.client_secret');
 
     $scope = ($type === 'operator')
       ? $config->get('operator.scope') ?? 'openid'
@@ -323,34 +292,30 @@ class WSO2AuthService {
       ? $config->get('operator.ag_entity_id') ?? $config->get('ag_entity_id')
       : $config->get('ag_entity_id');
 
-    // Build the authorization URL.
+    // Costruisci l'URL di autorizzazione
     $params = [
       'agEntityId' => $ag_entity_id,
       'client_id' => $client_id,
-      'client_secret' => $client_secret,
       'redirect_uri' => $redirect_uri,
       'response_type' => 'code',
       'scope' => $scope,
       'state' => $state,
     ];
 
-    // Special parameters for operators if needed
+    // Parametri speciali per gli operatori se necessario
     if ($type === 'operator') {
       $params['isAuthOperator'] = 'yes';
     }
 
-    // Log the params
-    $this->logger->debug('WSO2 Auth: Authorization parameters: @params', [
-      '@params' => print_r($params, TRUE),
-    ]);
-
-    // Build the final URL
+    // Costruisci l'URL finale
     $built_url = $full_auth_url . '?' . http_build_query($params);
     \Drupal::moduleHandler()->alter('wso2_auth_authorization_url', $built_url, $params);
 
-    $this->logger->debug('WSO2 Auth: Built authorization URL: @url', [
-      '@url' => $built_url,
-    ]);
+    if ($config->get('debug')) {
+      $this->logger->debug('WSO2 Auth: URL di autorizzazione generato: @url', [
+        '@url' => $built_url,
+      ]);
+    }
 
     return $built_url;
   }

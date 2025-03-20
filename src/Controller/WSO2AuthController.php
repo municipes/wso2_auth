@@ -149,10 +149,10 @@ class WSO2AuthController extends ControllerBase {
    *   A redirect response after handling the callback.
    */
   public function callback() {
-    // Get the current request.
+    // Prendi la richiesta corrente
     $request = $this->requestStack->getCurrentRequest();
 
-    // Get the authorization code and state from the request.
+    // Prendi il codice di autorizzazione e lo state dalla richiesta
     $code = $request->query->get('code');
     $state = $request->query->get('state');
     $session_state = $request->query->get('session_state');
@@ -164,67 +164,43 @@ class WSO2AuthController extends ControllerBase {
       ]);
     }
 
-    // Get the session.
+    // Prendi la sessione
     $session = $request->getSession();
 
-    // Se abbiamo un codice ma non uno state o lo state non corrisponde,
-    // potrebbe essere il caso di un utente già autenticato all'IdP
-    if (!empty($code) && (empty($state) || !$this->wso2Auth->verifyState($state))) {
-      // Abbiamo un codice ma lo state non è valido - probabile SSO preesistente
-      $this->getLogger('wso2_auth')->notice('Received code with invalid state, possibly from pre-authenticated session. Code: @code, State: @state', [
-        '@code' => $code,
-        '@state' => $state,
-      ]);
-
-      // Procediamo comunque con lo scambio del codice, ma registriamo l'evento
-      // come potenziale SSO da un altro sito
-    } else {
-      // Procedi con la normale verifica dello state come prima
-      if (empty($code) || empty($session_state)) {
-        $this->messenger()->addError($this->t('Invalid authorization response.'));
-        $this->getLogger('wso2_auth')->error('Invalid authorization response. Code: @code, SessionState: @session_state', [
-          '@code' => $code,
-          '@session_state' => $session_state,
-        ]);
-        return new RedirectResponse(Url::fromRoute('<front>')->toString());
-      }
-    }
-
-    // Check if the code and state are available.
+    // Controlla se il codice e lo state sono disponibili
     if (empty($code) || empty($state)) {
-      $this->messenger()->addError($this->t('Invalid authorization response.'));
-      $this->getLogger('wso2_auth')->error('Invalid authorization response. Code: @code, State: @state', [
-        '@code' => $code,
-        '@state' => $state,
-      ]);
+      $this->messenger()->addError($this->t('Risposta di autorizzazione non valida.'));
       return new RedirectResponse(Url::fromRoute('<front>')->toString());
     }
 
-    // Get the authentication type from session
+    // Verifica il parametro state
+    if (!$this->wso2Auth->verifyState($state)) {
+      $this->messenger()->addError($this->t('Parametro state non valido.'));
+      return new RedirectResponse(Url::fromRoute('<front>')->toString());
+    }
+
+    // Prendi il tipo di autenticazione dalla sessione
     $authType = $session->get('wso2_auth_type', 'citizen');
 
-    // Exchange the authorization code for tokens.
+    // Scambia il codice di autorizzazione per i token
     $tokens = $this->wso2Auth->getTokens($code);
     if (!$tokens) {
-      $this->messenger()->addError($this->t('Failed to get access token.'));
-      $this->getLogger('wso2_auth')->error('Failed to get access token. Code: @code, SessionState: @session_state', [
-        '@code' => $code,
-        '@session_state' => $session_state,
-      ]);
+      $this->messenger()->addError($this->t('Impossibile ottenere il token di accesso.'));
       return new RedirectResponse(Url::fromRoute('<front>')->toString());
     }
 
-    // Get the user info.
+    // Ottieni le informazioni dell'utente
     $user_info = $this->wso2Auth->getUserInfo($tokens['access_token']);
     if (!$user_info) {
-      $this->messenger()->addError($this->t('Failed to get user information.'));
-      $this->getLogger('wso2_auth')->error('Failed to get user information. AccessToken: @access_token', [
-        '@access_token' => $tokens['access_token'],
-      ]);
+      $this->messenger()->addError($this->t('Impossibile ottenere le informazioni utente.'));
       return new RedirectResponse(Url::fromRoute('<front>')->toString());
     }
 
-    // Handle authentication differently based on auth type
+    // Ottieni la destinazione dalla sessione
+    $destination = $session->get('wso2_auth_destination');
+    $session->remove('wso2_auth_destination');
+
+    // Gestisci l'autenticazione in base al tipo
     if ($authType === 'operator') {
       $account = $this->authenticateOperator($user_info, $tokens);
     } else {
@@ -232,7 +208,7 @@ class WSO2AuthController extends ControllerBase {
     }
 
     if (!$account) {
-      $this->messenger()->addError($this->t('Authentication failed.'));
+      $this->messenger()->addError($this->t('Autenticazione fallita.'));
       return new RedirectResponse(Url::fromRoute('<front>')->toString());
     }
 
@@ -241,45 +217,14 @@ class WSO2AuthController extends ControllerBase {
     // Store token information in the session.
     $session->set('wso2_auth_session', [
       'access_token' => $tokens['access_token'],
-      'refresh_token' => $tokens['refresh_token'],
+      'refresh_token' => $tokens['refresh_token'] ?? null,
       'id_token' => $tokens['id_token'],
       'expires' => time() + $tokens['expires_in'],
     ]);
 
-    // Get the destination from the session.
-    $destination = $session->get('wso2_auth_destination');
-    $session->remove('wso2_auth_destination');
-
-    // Reset the auto-login checked status so the system knows we're already logged in
-    $session->set('wso2_auth_auto_login_checked', TRUE);
-    $session->set('wso2_auth_last_check_time', time());
-
-    // Debug log
-    if ($this->debug) {
-      $this->getLogger('wso2_auth')->debug('Successful login for @username. Redirecting to: @destination', [
-        '@username' => $account->getAccountName(),
-        '@destination' => $destination ?? 'home page',
-      ]);
-    }
-
-    // Redirect to the destination or the front page.
+    // Reindirizza alla destinazione o alla pagina principale
     if (!empty($destination)) {
-      // Check if this is an internal path or an external URL
-      if (strpos($destination, '/') === 0) {
-        // It's an internal path, let's handle it safely
-        return new RedirectResponse($destination);
-      }
-      else {
-        // Try to handle as a Drupal route
-        try {
-          $url = Url::fromUserInput($destination)->toString();
-          return new RedirectResponse($url);
-        }
-        catch (\Exception $e) {
-          // If there's an error, just redirect to the URL directly
-          return new RedirectResponse($destination);
-        }
-      }
+      return new RedirectResponse($destination);
     }
 
     return new RedirectResponse(Url::fromRoute('<front>')->toString());
@@ -434,33 +379,49 @@ class WSO2AuthController extends ControllerBase {
    *   A redirect response after logout.
    */
   public function logout() {
-    // Get the current request.
+    // Prendi la richiesta corrente
     $request = $this->requestStack->getCurrentRequest();
+    $config = $this->configFactory->get('wso2_auth.settings');
 
-    // Get the session.
+    // Prendi la sessione
     $session = $request->getSession();
 
-    // Check if the user has a WSO2 session.
+    // Controlla se l'utente ha una sessione WSO2
     $wso2_session = $session->get('wso2_auth_session');
+
+    // Se non c'è una sessione WSO2, fai solo il logout da Drupal
     if (empty($wso2_session) || empty($wso2_session['id_token'])) {
-      // Just log out from Drupal if no WSO2 session exists.
       user_logout();
       return new RedirectResponse(Url::fromRoute('<front>')->toString());
     }
 
-    // Get the ID token.
+    // Ottieni il token ID
     $id_token = $wso2_session['id_token'];
 
-    // Remove the WSO2 session.
+    // Log per debug
+    if ($config->get('debug')) {
+      $this->getLogger('wso2_auth')->debug('Avvio logout WSO2 con id_token: @token', [
+        '@token' => substr($id_token, 0, 20) . '...',
+      ]);
+    }
+
+    // Rimuovi la sessione WSO2
     $session->remove('wso2_auth_session');
 
-    // Get the logout URL.
+    // Ottieni l'URL di logout
     $logout_url = $this->wso2Auth->getLogoutUrl($id_token, Url::fromRoute('<front>')->setAbsolute()->toString());
 
-    // Log out from Drupal.
+    // Log per debug
+    if ($config->get('debug')) {
+      $this->getLogger('wso2_auth')->debug('URL di logout generato: @url', [
+        '@url' => $logout_url,
+      ]);
+    }
+
+    // Fai il logout da Drupal
     user_logout();
 
-    // Redirect to the WSO2 logout URL.
+    // Reindirizza all'URL di logout WSO2
     return new TrustedRedirectResponse($logout_url);
   }
 }
