@@ -1,0 +1,34 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the WSO2 Authentication Check module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function wso2_auth_check_install() {
+  // Set default configuration.
+  $config = \Drupal::configFactory()->getEditable('wso2_auth_check.settings');
+  $config
+    ->set('enabled', TRUE)
+    ->set('check_every_page', FALSE)
+    ->set('check_interval', 300)
+    ->set('excluded_paths', "/wso2-auth/*\n/user/*\n/admin/*")
+    ->save();
+
+  // Log the installation.
+  \Drupal::logger('wso2_auth_check')->notice('WSO2 Authentication Check module installed.');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function wso2_auth_check_uninstall() {
+  // Delete module configuration.
+  \Drupal::configFactory()->getEditable('wso2_auth_check.settings')->delete();
+
+  // Log the uninstallation.
+  \Drupal::logger('wso2_auth_check')->notice('WSO2 Authentication Check module uninstalled.');
+}

@@ -1,0 +1,127 @@
+<?php
+
+/**
+ * @file
+ * WSO2 Authentication Check module file.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function wso2_auth_check_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'help.page.wso2_auth_check':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('The WSO2 Authentication Check module provides automatic session detection and transparent login for users already authenticated with WSO2 Identity Server on other sites.') . '</p>';
+      return $output;
+  }
+}
+
+/**
+ * Implements hook_wso2_auth_callback_alter().
+ *
+ * This hook is invoked in WSO2AuthController::callback() after a successful authentication
+ * to allow modifying the behavior or clearing any session flags.
+ *
+ * @param array $context
+ *   An array of context data, including:
+ *   - account: The user account that was authenticated.
+ *   - tokens: The authentication tokens returned by WSO2.
+ *   - user_info: The user information returned by WSO2.
+ *   - session: The current session.
+ */
+function wso2_auth_check_wso2_auth_callback_alter(array &$context) {
+  if (!empty($context['session'])) {
+    // Reset the redirect in progress flag if set.
+    if ($context['session']->get('wso2_auth_check.redirect_in_progress')) {
+      $context['session']->remove('wso2_auth_check.redirect_in_progress');
+    }
+
+    // Mark that we've checked the session to avoid repeated checks.
+    $context['session']->set('wso2_auth_check.checked', TRUE);
+    $context['session']->set('wso2_auth_check.last_check', time());
+
+    // Log the successful auto-login if debug is enabled.
+    $config = \Drupal::config('wso2_auth.settings');
+    if ($config->get('debug')) {
+      \Drupal::logger('wso2_auth_check')->debug('Auto-login completed successfully for user @uid', [
+        '@uid' => $context['account']->id(),
+      ]);
+    }
+  }
+}
+
+/**
+ * Allows modules to alter the list of excluded paths.
+ *
+ * @param array $paths
+ *   The list of paths to exclude from session checking.
+ */
+function wso2_auth_check_get_excluded_paths() {
+  // Default paths to exclude.
+  $paths = [
+    '/wso2-auth/authorize',
+    '/wso2-auth/callback',
+    '/wso2-auth/logout',
+    '/user/login',
+    '/user/logout',
+    '/admin',
+  ];
+
+  // Get user-configured excluded paths.
+  $config = \Drupal::config('wso2_auth_check.settings');
+  $user_excluded_paths = $config->get('excluded_paths');
+  if (!empty($user_excluded_paths)) {
+    $paths = array_merge($paths, preg_split('/\r\n|\r|\n/', $user_excluded_paths));
+  }
+
+  // Allow other modules to alter the excluded paths.
+  \Drupal::moduleHandler()->alter('wso2_auth_check_paths', $paths);
+
+  return $paths;
+}
+
+/**
+ * Determines if a session check should be performed.
+ *
+ * This takes into account the module's configuration and session state.
+ *
+ * @param \Symfony\Component\HttpFoundation\Session\SessionInterface $session
+ *   The session.
+ *
+ * @return bool
+ *   TRUE if a session check should be performed.
+ */
+function wso2_auth_check_should_check_session($session) {
+  $config = \Drupal::config('wso2_auth_check.settings');
+  $should_check = TRUE;
+
+  // Check if we already checked in this session.
+  if ($session->get('wso2_auth_check.checked')) {
+    // If we're not checking on every page, only check once per session.
+    if (!$config->get('check_every_page')) {
+      $should_check = FALSE;
+    }
+    else {
+      // Check if enough time has passed since last check.
+      $last_check = $session->get('wso2_auth_check.last_check', 0);
+      $check_interval = $config->get('check_interval', 300); // Default: 5 minutes
+      if ((time() - $last_check) < $check_interval) {
+        $should_check = FALSE;
+      }
+    }
+  }
+
+  // Check if we're already in a redirect process.
+  if ($session->get('wso2_auth_check.redirect_in_progress')) {
+    $should_check = FALSE;
+  }
+
+  // Allow other modules to alter the decision.
+  \Drupal::moduleHandler()->alter('wso2_auth_check_should_check', $should_check, $session);
+
+  return $should_check;
+}

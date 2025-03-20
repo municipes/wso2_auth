@@ -1,0 +1,16 @@
+wso2_auth_check.settings:
+  type: config_object
+  label: 'WSO2 Authentication Check settings'
+  mapping:
+    enabled:
+      type: boolean
+      label: 'Enable automatic session check'
+    check_every_page:
+      type: boolean
+      label: 'Check on every page load'
+    check_interval:
+      type: integer
+      label: 'Session check interval'
+    excluded_paths:
+      type: string
+      label: 'Excluded paths'

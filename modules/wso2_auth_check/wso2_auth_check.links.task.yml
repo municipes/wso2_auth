@@ -1,0 +1,5 @@
+wso2_auth_check.settings:
+  title: 'Session Check Settings'
+  route_name: wso2_auth_check.settings
+  base_route: wso2_auth.settings
+  weight: 30

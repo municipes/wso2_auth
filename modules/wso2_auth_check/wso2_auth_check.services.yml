@@ -1,0 +1,27 @@
+services:
+  wso2_auth_check.helper:
+    class: Drupal\wso2_auth_check\WSO2SessionCheckHelper
+    arguments:
+      - '@wso2_auth.authentication'
+      - '@current_user'
+      - '@config.factory'
+      - '@logger.channel.wso2_auth_check'
+
+  wso2_auth_check.session_subscriber:
+    class: Drupal\wso2_auth_check\EventSubscriber\WSO2SessionCheckSubscriber
+    arguments:
+      - '@wso2_auth.authentication'
+      - '@current_user'
+      - '@config.factory'
+      - '@path.current'
+      - '@path_alias.manager'
+      - '@logger.channel.wso2_auth_check'
+      - '@messenger'
+      - '@request_stack'
+      - '@wso2_auth_check.helper'
+    tags:
+      - { name: event_subscriber }
+
+  logger.channel.wso2_auth_check:
+    parent: logger.channel_base
+    arguments: ['wso2_auth_check']

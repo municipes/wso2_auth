@@ -1,0 +1,6 @@
+wso2_auth_check.settings:
+  title: 'Session Check Settings'
+  route_name: wso2_auth_check.settings
+  parent: wso2_auth.settings
+  description: 'Configure automatic session check for WSO2 Authentication.'
+  weight: 30
