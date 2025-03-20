@@ -170,8 +170,10 @@ class WSO2AuthService {
    *   A random state string.
    */
   public function generateState() {
-    $state = bin2hex(random_bytes(16));
-    $this->session->set('wso2_auth_state', $state);
+    $session_token = $this->session->getId();
+    $random = bin2hex(random_bytes(16));
+    $state = $random . '_' . md5($session_token);
+    $this->session->set('wso2_auth_state_random', $random);
     return $state;
   }
 
@@ -185,18 +187,26 @@ class WSO2AuthService {
    *   TRUE if the state is valid.
    */
   public function verifyState($returned_state) {
-    $original_state = $this->session->get('wso2_auth_state');
-    $this->session->remove('wso2_auth_state');
+    $random = $this->session->get('wso2_auth_state_random');
+    // $this->session->remove('wso2_auth_state_random');
 
-    if (empty($original_state) || empty($returned_state) || $original_state !== $returned_state) {
-      $this->logger->error('WSO2 Auth: Invalid state parameter. Expected @expected, got @returned', [
-        '@expected' => $original_state ?? 'empty',
-        '@returned' => $returned_state ?? 'empty',
-      ]);
+    if (empty($random) || empty($returned_state)) {
       return FALSE;
     }
 
-    return TRUE;
+    list($returned_random, $returned_hash) = explode('_', $returned_state);
+    $this->getLogger('wso2_auth')->notice('::verifyState | ReturnedState: @returned_state,
+      Random: @random, ReturnedRandom: @returned_random,
+      ReturnedHash: @returned_hash, md5: @md5', [
+      '@returned_state' => $returned_state,
+      '@random' => $random,
+      '@returned_random' => $returned_random,
+      '@returned_hash' => $returned_hash,
+      '@md5' => md5($this->session->getId()),
+    ]);
+
+    return $random === $returned_random &&
+          md5($this->session->getId()) === $returned_hash;
   }
 
   /**
@@ -267,6 +277,10 @@ class WSO2AuthService {
 
     // Generate the state parameter.
     $state = $this->generateState();
+    // Debug log the state parameter.
+    $this->logger->debug('WSO2 Auth ::getAuthorizationUrl: Generated state parameter: @state', [
+      '@state' => $state,
+    ]);
 
     // Get the authentication server URL and endpoint
     $auth_server_url = $this->environmentHelper->getAuthServerUrl();
@@ -789,8 +803,8 @@ class WSO2AuthService {
   public function getLogoutUrl($id_token, $destination = '') {
     $config = $this->configFactory->get('wso2_auth.settings');
 
-    // Generate the state parameter.
-    $state = $this->generateState();
+    // Get the state parameter.
+    $state = $this->session->get('wso2_auth_state');
 
     // Use the site base URL if no destination is provided.
     $redirect_uri = !empty($destination)

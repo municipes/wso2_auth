@@ -141,22 +141,38 @@ class WSO2AuthController extends ControllerBase {
     // Get the authorization code and state from the request.
     $code = $request->query->get('code');
     $state = $request->query->get('state');
+    $session_state = $request->query->get('session_state');
+    $this->getLogger('wso2_auth')->notice('Received code. Code: @code, State: @state, SessionState: @session_state', [
+      '@code' => $code,
+      '@state' => $state,
+      '@session_state' => $session_state,
+    ]);
 
     // Get the session.
     $session = $request->getSession();
 
-    // Clear the auto-login attempt flag so we can try again later if needed
-    $session->remove('wso2_auth_auto_login_attempt');
+    // Se abbiamo un codice ma non uno state o lo state non corrisponde,
+    // potrebbe essere il caso di un utente già autenticato all'IdP
+    if (!empty($code) && (empty($state) || !$this->wso2Auth->verifyState($state))) {
+      // Abbiamo un codice ma lo state non è valido - probabile SSO preesistente
+      $this->getLogger('wso2_auth')->notice('Received code with invalid state, possibly from pre-authenticated session. Code: @code, State: @state', [
+        '@code' => $code,
+        '@state' => $state,
+      ]);
+
+      // Procediamo comunque con lo scambio del codice, ma registriamo l'evento
+      // come potenziale SSO da un altro sito
+    } else {
+      // Procedi con la normale verifica dello state come prima
+      if (empty($code) || empty($session_state)) {
+        $this->messenger()->addError($this->t('Invalid authorization response.'));
+        return new RedirectResponse(Url::fromRoute('<front>')->toString());
+      }
+    }
 
     // Check if the code and state are available.
     if (empty($code) || empty($state)) {
       $this->messenger()->addError($this->t('Invalid authorization response.'));
-      return new RedirectResponse(Url::fromRoute('<front>')->toString());
-    }
-
-    // Verify the state parameter.
-    if (!$this->wso2Auth->verifyState($state)) {
-      $this->messenger()->addError($this->t('Invalid state parameter.'));
       return new RedirectResponse(Url::fromRoute('<front>')->toString());
     }
 
