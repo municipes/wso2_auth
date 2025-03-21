@@ -1,7 +1,15 @@
 wso2_auth_check.settings:
-  path: '/admin/config/people/wso2-auth/session-check'
+  path: '/admin/config/people/wso2-auth/wso2-auth-check'
   defaults:
     _form: '\Drupal\wso2_auth_check\Form\WSO2AuthCheckSettingsForm'
-    _title: 'Session Check Settings'
+    _title: 'WSO2 Auth Check Settings'
   requirements:
-    _permission: 'administer wso2 authentication'
+    _permission: 'administer site configuration'
+
+wso2_auth_check.callback:
+  path: '/wso2-auth-callback'
+  defaults:
+    _controller: '\Drupal\wso2_auth_check\Controller\WSO2AuthController::handleCallback'
+    _title: 'WSO2 Auth Callback'
+  requirements:
+    _access: 'TRUE'

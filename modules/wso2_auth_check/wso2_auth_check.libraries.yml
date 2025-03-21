@@ -1,0 +1,8 @@
+auth_check:
+  version: 1.x
+  js:
+    js/wso2_auth_check.js: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+    - core/once

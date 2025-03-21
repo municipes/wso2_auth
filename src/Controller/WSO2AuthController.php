@@ -149,6 +149,23 @@ class WSO2AuthController extends ControllerBase {
    *   A redirect response after handling the callback.
    */
   public function callback() {
+    $code = \Drupal::request()->query->get('code');
+    $error = \Drupal::request()->query->get('error');
+    $state = \Drupal::request()->query->get('state');
+
+    return [
+      '#markup' => '<script>
+        window.parent.postMessage({
+          wso2Auth: {
+            code: "' . $code . '",
+            error: "' . $error . '",
+            error_description: "' . \Drupal::request()->query->get('error_description') . '",
+            state: "' . $state . '"
+          }
+        }, window.location.origin);
+      </script>'
+    ];
+
     // Prendi la richiesta corrente
     $request = $this->requestStack->getCurrentRequest();
 
