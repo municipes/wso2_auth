@@ -20,37 +20,42 @@
    }
  }
 
- /**
-  * Implements hook_page_attachments().
-  */
- function wso2_auth_check_page_attachments(array &$attachments) {
-   // Verifica se l'utente è anonimo.
-   if (\Drupal::currentUser()->isAnonymous()) {
-     // Aggiungi la libreria JavaScript.
-     $attachments['#attached']['library'][] = 'wso2_auth_check/auth_check';
+/**
+ * Implements hook_page_attachments().
+ */
+function wso2_auth_check_page_attachments(array &$attachments) {
+  // Verifica se l'utente è anonimo.
+  if (\Drupal::currentUser()->isAnonymous()) {
+    // Ottieni il servizio di configurazione
+    $config_service = \Drupal::service('wso2_auth_check.config');
 
-     // Aggiungi le impostazioni necessarie per il JS.
-     $config = \Drupal::config('wso2_auth_check.settings');
-     $settings = [
-       'idpUrl' => $config->get('idp_url') ?: 'https://id.055055.it:9443/oauth2/authorize',
-       'clientId' => $config->get('client_id') ?: 'Silfi-Opencity',
-       'redirectUri' => $config->get('redirect_uri') ?: \Drupal::request()->getSchemeAndHttpHost() . '/wso2-auth-callback',
-       'loginPath' => $config->get('login_path') ?: '/wso2silfi/connect/cittadino',
-     ];
+    // Verifica se il controllo è abilitato e se c'è un modulo di autenticazione attivo
+    if (!$config_service->isEnabled() || !$config_service->hasActiveAuthModule()) {
+      return;
+    }
 
-     $attachments['#attached']['drupalSettings']['wso2AuthCheck'] = $settings;
-   }
- }
+    // Debug
+    $config_service->debug('Inizializzazione controllo autenticazione WSO2 per utente anonimo');
 
- /**
-  * Implements hook_theme().
-  */
- function wso2_auth_check_theme() {
-   return [
-     'wso2_auth_iframe' => [
-       'variables' => [
-         'iframe_url' => NULL,
-       ],
-     ],
-   ];
- }
+    // Verifica se siamo in una pagina di callback per l'autenticazione
+    $current_path = \Drupal::service('path.current')->getPath();
+    if (strpos($current_path, '/wso2-auth-callback') === 0) {
+      // Non caricare il JavaScript sull'iframe o la pagina di callback
+      $config_service->debug('Pagina di callback rilevata, skip caricamento JS');
+      return;
+    }
+
+    // Aggiungi la libreria JavaScript.
+    $attachments['#attached']['library'][] = 'wso2_auth_check/auth_check';
+
+    // Ottieni le configurazioni dal servizio
+    $settings = $config_service->getConfig();
+
+    // Aggiungi il token CSRF
+    $settings['csrfToken'] = \Drupal::csrfToken()->get('wso2_auth_' . session_id());
+
+    $config_service->debug('Configurazione caricata per JS', $settings);
+
+    $attachments['#attached']['drupalSettings']['wso2AuthCheck'] = $settings;
+  }
+}

@@ -3,5 +3,5 @@ type: module
 description: 'Provides automatic session detection and transparent login for WSO2 Authentication'
 core_version_requirement: ^10 || ^11
 package: Authentication
-dependencies:
-  - wso2_auth:wso2_auth
+dependencies: []
+  # - wso2_auth:wso2_auth

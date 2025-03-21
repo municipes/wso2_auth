@@ -5,13 +5,12 @@ namespace Drupal\wso2_auth_check\Controller;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\user\Entity\User;
+use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Firebase\JWT\JWT;
-use Firebase\JWT\Key;
-use Drupal\Core\Url;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
  * Controller per la gestione dell'autenticazione WSO2.
@@ -57,7 +56,7 @@ class WSO2AuthController extends ControllerBase {
     // Verifica se è abilitato l'auto-login.
     $config = $this->config('wso2_auth_check.settings');
     if (!$config->get('enable_auto_login')) {
-      return new JsonResponse(['success' => FALSE, 'message' => 'Auto-login is disabled'], 403);
+      // return new JsonResponse(['success' => FALSE, 'message' => 'Auto-login is disabled'], 403);
     }
 
     // L'utente è già autenticato, non fare nulla.
@@ -65,9 +64,23 @@ class WSO2AuthController extends ControllerBase {
       return new JsonResponse(['success' => TRUE, 'message' => 'Already authenticated']);
     }
 
-    // Gestione delle chiamate POST (da JavaScript) con token JWT.
-    if ($request->isMethod('POST') && $request->getContentType() === 'json') {
-      $data = json_decode($request->getContent(), TRUE);
+    if ($request->isMethod('POST') || $request->query->has('id_token')) {
+      $data = [];
+
+      // Check JSON content for POST
+      if ($request->isMethod('POST')) {
+        if ($request->getContentType() === 'application/json') {
+          $data = json_decode($request->getContent(), TRUE) ?: [];
+        } else {
+          // Handle form data for POST
+          $data = $request->request->all();
+        }
+      }
+
+      // Check query parameters if not found in POST data
+      if (empty($data['id_token'])) {
+        $data['id_token'] = $request->query->get('id_token');
+      }
 
       if (empty($data['id_token'])) {
         return new JsonResponse(['success' => FALSE, 'message' => 'No ID token provided'], 400);
@@ -75,10 +88,17 @@ class WSO2AuthController extends ControllerBase {
 
       // Invece di gestire il login qui, reindirizza al modulo esistente
       $loginPath = $config->get('login_path') ?: '/wso2silfi/connect/cittadino';
-      return new JsonResponse([
-        'success' => TRUE,
-        'redirect' => $loginPath
-      ]);
+
+      // Se è una chiamata AJAX, rispondi con JSON
+      if ($request->isXmlHttpRequest()) {
+        return new JsonResponse([
+          'success' => TRUE,
+          'redirect' => $loginPath
+        ]);
+      }
+
+      // Altrimenti, reindirizza direttamente
+      return new RedirectResponse($loginPath);
     }
 
     // Gestione delle chiamate GET con parametri di errore o token nell'URL.
@@ -94,30 +114,40 @@ class WSO2AuthController extends ControllerBase {
       if ($id_token) {
         // L'IdP ha reindirizzato con un token, renderizza una pagina che invia il token al parent.
         // O reindirizza direttamente al modulo di login esistente.
+        $login_path = $config->get('login_path') ?: '/wso2silfi/connect/cittadino';
+
         $content = '
           <html>
           <head><title>Authentication</title></head>
           <body>
             <script>
+              console.log("Pagina di callback caricata con token");
               try {
                 if (window.opener) {
+                  console.log("Invio token alla finestra opener");
                   window.opener.postMessage(JSON.stringify({id_token: "' . $id_token . '"}), "*");
                   window.close();
                 } else if (window.parent) {
+                  console.log("Invio token alla finestra parent");
                   window.parent.postMessage(JSON.stringify({id_token: "' . $id_token . '"}), "*");
                 } else {
                   // Fallback: reindirizza direttamente
-                  const loginPath = "' . $config->get('login_path') . '";
-                  window.location.href = loginPath || "/wso2silfi/connect/cittadino";
+                  console.log("Nessuna finestra opener o parent, reindirizzo direttamente");
+                  const loginPath = "' . $login_path . '";
+                  setTimeout(function() {
+                    window.location.href = loginPath;
+                  }, 500);
                 }
               } catch(e) {
                 console.error("Error posting message", e);
                 // In caso di errore, reindirizza comunque
-                const loginPath = "' . $config->get('login_path') . '";
-                window.location.href = loginPath || "/wso2silfi/connect/cittadino";
+                setTimeout(function() {
+                  window.location.href = "' . $login_path . '";
+                }, 500);
               }
             </script>
             <p>Autenticazione completata. Verrai reindirizzato automaticamente...</p>
+            <p><a href="' . $login_path . '">Clicca qui se non vieni reindirizzato automaticamente</a></p>
           </body>
           </html>
         ';

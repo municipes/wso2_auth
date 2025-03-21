@@ -6,7 +6,7 @@ use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 
 /**
- * Configuration form for WSO2 Authentication Check.
+ * Configure WSO2 Auth Check settings.
  */
 class WSO2AuthCheckSettingsForm extends ConfigFormBase {
 
@@ -14,7 +14,7 @@ class WSO2AuthCheckSettingsForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function getFormId() {
-    return 'wso2_auth_check_settings_form';
+    return 'wso2_auth_check_settings';
   }
 
   /**
@@ -30,54 +30,56 @@ class WSO2AuthCheckSettingsForm extends ConfigFormBase {
   public function buildForm(array $form, FormStateInterface $form_state) {
     $config = $this->config('wso2_auth_check.settings');
 
-    $form['info'] = [
-      '#markup' => '<div class="messages messages--info">' . $this->t('Configure automatic WSO2 session check for users already authenticated with WSO2 Identity Server on other sites.') . '</div>',
-    ];
+    // Verifica disponibilità dei moduli di configurazione
+    $wso2silfi_enabled = \Drupal::moduleHandler()->moduleExists('wso2silfi') &&
+      \Drupal::config('wso2silfi.settings')->get('general.wso2silfi_enabled');
+
+    $wso2_auth_enabled = \Drupal::moduleHandler()->moduleExists('wso2_auth') &&
+      \Drupal::config('wso2_auth.settings')->get('enabled');
+
+    // Mostra avviso se nessun modulo è attivo
+    if (!$wso2silfi_enabled && !$wso2_auth_enabled) {
+      $this->messenger()->addWarning($this->t('Nessun modulo di autenticazione WSO2 è attivo. Attiva wso2silfi o wso2_auth nelle impostazioni del sito.'));
+    }
+    else {
+      // Mostra quale modulo verrà utilizzato
+      if ($wso2silfi_enabled) {
+        $this->messenger()->addStatus($this->t('Configurazione da wso2silfi (priorità più alta)'));
+      }
+      else {
+        $this->messenger()->addStatus($this->t('Configurazione da wso2_auth'));
+      }
+    }
 
     $form['enabled'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Enable automatic session check'),
+      '#title' => $this->t('Abilita controllo automatico autenticazione'),
+      '#description' => $this->t('Se abilitato, verifica automaticamente se un utente anonimo è già autenticato presso l\'IdP.'),
       '#default_value' => $config->get('enabled') ?? FALSE,
-      '#description' => $this->t('Enable automatic detection of existing WSO2 sessions.'),
     ];
 
-    $form['check_every_page'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Check on every page load'),
-      '#default_value' => $config->get('check_every_page') ?? FALSE,
-      '#description' => $this->t('If enabled, the system will check on every page load if the time interval has passed. If disabled, it will only check once per session.'),
-      '#states' => [
-        'visible' => [
-          ':input[name="enabled"]' => ['checked' => TRUE],
-        ],
-      ],
-    ];
+    // Disabilita l'opzione se nessun modulo è attivo
+    if (!$wso2silfi_enabled && !$wso2_auth_enabled) {
+      $form['enabled']['#disabled'] = TRUE;
+      $form['enabled']['#description'] .= ' ' . $this->t('Questa opzione è disabilitata finché un modulo di autenticazione WSO2 non sarà attivo.');
+    }
 
     $form['check_interval'] = [
       '#type' => 'number',
-      '#title' => $this->t('Session check interval'),
-      '#default_value' => $config->get('check_interval') ?? 300,
-      '#min' => 10,
+      '#title' => $this->t('Intervallo tra i controlli (minuti)'),
+      '#description' => $this->t('Tempo minimo in minuti tra due controlli consecutivi per utenti non autenticati.'),
+      '#default_value' => $config->get('check_interval') ?? 3,
+      '#min' => 1,
+      '#max' => 60,
       '#step' => 1,
-      '#description' => $this->t('Minimum time in seconds between session checks (only applies if checking on every page load).'),
-      '#states' => [
-        'visible' => [
-          ':input[name="enabled"]' => ['checked' => TRUE],
-          ':input[name="check_every_page"]' => ['checked' => TRUE],
-        ],
-      ],
+      '#required' => TRUE,
     ];
 
-    $form['excluded_paths'] = [
-      '#type' => 'textarea',
-      '#title' => $this->t('Excluded paths'),
-      '#default_value' => $config->get('excluded_paths') ?? '',
-      '#description' => $this->t('Enter one path per line. The session check will be skipped for these paths. Example: /node/1'),
-      '#states' => [
-        'visible' => [
-          ':input[name="enabled"]' => ['checked' => TRUE],
-        ],
-      ],
+    $form['debug'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Abilita modalità debug'),
+      '#description' => $this->t('Se abilitato, verranno mostrati messaggi di debug dettagliati nella console del browser e nei log di Drupal.'),
+      '#default_value' => $config->get('debug') ?? FALSE,
     ];
 
     return parent::buildForm($form, $form_state);
@@ -87,19 +89,12 @@ class WSO2AuthCheckSettingsForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    $values = $form_state->getValues();
-
     $this->config('wso2_auth_check.settings')
-      ->set('enabled', (bool) $values['enabled'])
-      ->set('check_every_page', (bool) $values['check_every_page'])
-      ->set('check_interval', (int) $values['check_interval'])
-      ->set('excluded_paths', $values['excluded_paths'])
+      ->set('enabled', $form_state->getValue('enabled'))
+      ->set('check_interval', $form_state->getValue('check_interval'))
+      ->set('debug', $form_state->getValue('debug'))
       ->save();
 
     parent::submitForm($form, $form_state);
-
-    // Pulisce la cache per assicurarsi che le modifiche vengano applicate immediatamente
-    \Drupal::service('cache.config')->deleteAll();
   }
-
 }
