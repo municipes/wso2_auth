@@ -85,7 +85,7 @@ class WSO2ConfigService {
    */
   public function debug($message, array $context = []) {
     if ($this->isDebugEnabled()) {
-      \Drupal::logger('wso2_auth_check')->debug($message, $context);
+      \Drupal::logger('wso2_auth_check')->debug($message, ['@context' => $context]);
     }
   }
 
@@ -112,6 +112,7 @@ class WSO2ConfigService {
         $server_url = $silfi_config->get('general.server_url');
         $authorize = $silfi_config->get('general.authorize');
         $config['idpUrl'] = rtrim($server_url, '/') . '/' . ltrim($authorize, '/');
+        $config['redirectUri'] = \Drupal::request()->getSchemeAndHttpHost() . '/oauth2/authorized';
         $config['clientId'] = $silfi_config->get('citizen.client_id');
         $config['loginPath'] = '/wso2silfi/connect/cittadino';
         return $config;
@@ -123,6 +124,7 @@ class WSO2ConfigService {
       $auth_config = $this->configFactory->get('wso2_auth.settings');
       if ($auth_config->get('enabled')) {
         $config['idpUrl'] = $auth_config->get('auth_server_url');
+        $config['redirectUri'] = \Drupal::request()->getSchemeAndHttpHost() . '/wso2-auth-callback';
         $config['clientId'] = $auth_config->get('citizen.client_id');
         $config['loginPath'] = '/wso2-auth/authorize/citizen';
         return $config;
