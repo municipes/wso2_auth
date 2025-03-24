@@ -4,6 +4,7 @@ namespace Drupal\wso2_auth_check\Service;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\wso2silfi\Helper\Status;
 
 /**
  * Service per la gestione della configurazione WSO2.
@@ -25,16 +26,26 @@ class WSO2ConfigService {
   protected $moduleHandler;
 
   /**
+   * The wso2silfi status.
+   *
+   * @var \Drupal\wso2silfi\Helper\Status
+   */
+  protected $status;
+
+  /**
    * Costruttore.
    *
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   La factory per le configurazioni.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   Il gestore dei moduli.
+   * @param \Drupal\wso2silfi\Helper\Status $status
+   *   Il servizio per lo stato di wso2silfi.
    */
-  public function __construct(ConfigFactoryInterface $config_factory, ModuleHandlerInterface $module_handler) {
+  public function __construct(ConfigFactoryInterface $config_factory, ModuleHandlerInterface $module_handler, Status $status) {
     $this->configFactory = $config_factory;
     $this->moduleHandler = $module_handler;
+    $this->status = $status;
   }
 
   /**
@@ -109,7 +120,16 @@ class WSO2ConfigService {
     if ($this->moduleHandler->moduleExists('wso2silfi')) {
       $silfi_config = $this->configFactory->get('wso2silfi.settings');
       if ($silfi_config->get('general.wso2silfi_enabled')) {
-        $server_url = $silfi_config->get('general.server_url');
+        $url = $this->status->authorizeUrlWso2();;
+        $parsed_url = parse_url($url);
+
+        $base_url = $parsed_url['scheme'] . '://' . $parsed_url['host'];
+        if (isset($parsed_url['port'])) {
+          $base_url .= ':' . $parsed_url['port'];
+        }
+
+        $server_url = $base_url; // Output: https://id.055055.it:9443
+
         $authorize = $silfi_config->get('general.authorize');
         $config['idpUrl'] = rtrim($server_url, '/') . '/' . ltrim($authorize, '/');
         $config['redirectUri'] = \Drupal::request()->getSchemeAndHttpHost() . '/oauth2/authorized';
