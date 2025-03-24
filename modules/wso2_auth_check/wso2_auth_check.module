@@ -39,7 +39,8 @@ function wso2_auth_check_page_attachments(array &$attachments) {
 
     // Verifica se siamo in una pagina di callback per l'autenticazione
     $current_path = \Drupal::service('path.current')->getPath();
-    if (strpos($current_path, '/wso2-auth-callback') === 0) {
+    if (strpos($current_path, '/wso2-auth-callback') === 0
+      || strpos($current_path, '/oauth2/authorized') === 0) {
       // Non caricare il JavaScript sull'iframe o la pagina di callback
       $config_service->debug('Pagina di callback rilevata, skip caricamento JS');
       return;
@@ -54,7 +55,9 @@ function wso2_auth_check_page_attachments(array &$attachments) {
     // Aggiungi il token CSRF
     $settings['csrfToken'] = \Drupal::csrfToken()->get('wso2_auth_' . session_id());
 
-    $config_service->debug('Configurazione caricata per JS', $settings);
+    if ($config_service->isDebugEnabled()) {
+      \Drupal::logger('wso2_auth_check')->debug('Configurazione caricata per JS: @variable', ['@variable' => print_r($settings, TRUE)]);
+    }
 
     $attachments['#attached']['drupalSettings']['wso2AuthCheck'] = $settings;
   }
