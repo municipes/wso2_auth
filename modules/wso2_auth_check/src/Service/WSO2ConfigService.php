@@ -130,8 +130,8 @@ class WSO2ConfigService {
 
         $server_url = $base_url; // Output: https://id.055055.it:9443
 
-        $authorize = $silfi_config->get('general.authorize');
-        $config['idpUrl'] = rtrim($server_url, '/') . '/' . ltrim($authorize, '/');
+        $authorize = '/oauth2/authorize';
+        $config['idpUrl'] = rtrim($server_url, '/') . $authorize;
         $config['redirectUri'] = \Drupal::request()->getSchemeAndHttpHost() . '/oauth2/authorized';
         $config['clientId'] = $silfi_config->get('citizen.client_id');
         $config['loginPath'] = '/wso2silfi/connect/cittadino';
