@@ -55,9 +55,9 @@ class WSO2AuthController extends ControllerBase {
   public function handleCallback(Request $request) {
     // Verifica se è abilitato l'auto-login.
     $config = $this->config('wso2_auth_check.settings');
-    if (!$config->get('enable_auto_login')) {
-      // return new JsonResponse(['success' => FALSE, 'message' => 'Auto-login is disabled'], 403);
-    }
+    // if (!$config->get('enable_auto_login')) {
+    //   return new JsonResponse(['success' => FALSE, 'message' => 'Auto-login is disabled'], 403);
+    // }
 
     // L'utente è già autenticato, non fare nulla.
     if (!$this->currentUser->isAnonymous()) {
