@@ -94,10 +94,12 @@
         const authCheckUrl = new URL(idpConfig.idpUrl);
         authCheckUrl.searchParams.append('response_type', 'id_token');
         authCheckUrl.searchParams.append('client_id', idpConfig.clientId);
-        authCheckUrl.searchParams.append('redirect_uri', idpConfig.redirectUri);
+        // authCheckUrl.searchParams.append('redirect_uri', idpConfig.redirectUri);
+        authCheckUrl.searchParams.append('redirect_uri', '/wso2-auth-callback');
         authCheckUrl.searchParams.append('scope', 'openid');
         authCheckUrl.searchParams.append('prompt', 'none');
         authCheckUrl.searchParams.append('nonce', nonce);
+        authCheckUrl.searchParams.append('response_mode', 'web_message');
 
         debugLog('URL iframe:', authCheckUrl.toString());
 
