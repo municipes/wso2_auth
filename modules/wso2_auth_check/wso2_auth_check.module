@@ -52,6 +52,10 @@ function wso2_auth_check_page_attachments(array &$attachments) {
     // Ottieni le configurazioni dal servizio
     $settings = $config_service->getConfig();
 
+    // Calcola dinamicamente il redirect_uri
+    $base_url = \Drupal::request()->getSchemeAndHttpHost();
+    $settings['redirectUri'] = $base_url . '/wso2-auth-callback';
+
     // Aggiungi il token CSRF
     $settings['csrfToken'] = \Drupal::csrfToken()->get('wso2_auth_' . session_id());
 
