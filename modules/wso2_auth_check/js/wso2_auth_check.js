@@ -39,7 +39,7 @@
           // Se l'ultimo controllo negativo è stato fatto di recente, salta la verifica
           if (timeDiff < checkIntervalMs) {
             debugLog('Verifica IdP saltata: controllo negativo recente', new Date(lastCheckTime));
-            debugLog('Prossimo controllo tra', Math.ceil((checkIntervalMs - timeDiff) / 60000), 'minuti');
+            debugLog('Prossimo controllo tra ' + Math.ceil((checkIntervalMs - timeDiff) / 60000) + ' minuti');
             return;
           }
         }
