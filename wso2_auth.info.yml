@@ -6,3 +6,6 @@ package: Authentication
 dependencies:
   - externalauth:externalauth
 configure: wso2_auth.settings
+
+
+version: 1.0.6
