@@ -49,7 +49,14 @@
           // Rimuovi il flag di non autenticazione quando l'utente è autenticato
           localStorage.removeItem('wso2_auth_not_authenticated');
 
-          const redirectUrl = idpConfig.loginPath || '/wso2silfi/connect/cittadino';
+          // Ottieni il path corrente per usarlo come destination
+          const currentPath = window.location.pathname + window.location.search + window.location.hash;
+          debugLog('Path corrente rilevato:', currentPath);
+
+          // Costruisci l'URL di redirect con la destination dinamica
+          const redirectUrl = (idpConfig.loginPath || '/wso2silfi/connect/cittadino') +
+                              (currentPath ? '?destination=' + encodeURIComponent(currentPath) : '');
+
           debugLog('Reindirizzamento a', redirectUrl);
 
           // Link cliccabile nel DOM in caso di fallimento redirect automatico
