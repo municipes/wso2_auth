@@ -40,6 +40,7 @@ wso2_auth.authorize:
     type: 'citizen'
   requirements:
     _access: 'TRUE'
+    type: '^(citizen|operator)$'
 
 wso2_auth.callback:
   path: '/wso2-auth/callback'
