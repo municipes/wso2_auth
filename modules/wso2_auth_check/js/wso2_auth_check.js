@@ -95,7 +95,7 @@
         // Genera un nonce e salvalo nel localStorage per la verifica futura
         const nonce = generateNonce();
         localStorage.setItem('wso2_auth_nonce', nonce);
-        debugLog('Nonce generato:', nonce);
+        // debugLog('Nonce generato:', nonce);
 
         // Costruisci l'URL per l'iframe di verifica.
         const authCheckUrl = new URL(idpConfig.idpUrl);
