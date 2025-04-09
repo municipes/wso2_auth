@@ -105,7 +105,7 @@ class WSO2AuthController extends ControllerBase {
     }
 
     // Get the destination from the request if available.
-    $destination = $request->query->get('destination');
+    $destination = $request->query->get('destinazione');
 
     // Log the destination parameter for debugging
     if ($destination && $this->debug) {
@@ -116,6 +116,9 @@ class WSO2AuthController extends ControllerBase {
 
     // Generate the authorization URL.
     $url = $this->wso2Auth->getAuthorizationUrl($destination, $type);
+    // Aggiungi un timestamp o un numero casuale all'URL per evitare la cache
+    $url = $this->wso2Auth->getAuthorizationUrl($destination, $type);
+    $url .= (strpos($url, '?') !== false ? '&' : '?') . 'nocache=' . time();
 
     // Log the final URL we're redirecting to
     if ($this->debug) {
@@ -153,18 +156,18 @@ class WSO2AuthController extends ControllerBase {
     $error = \Drupal::request()->query->get('error');
     $state = \Drupal::request()->query->get('state');
 
-    return [
-      '#markup' => '<script>
-        window.parent.postMessage({
-          wso2Auth: {
-            code: "' . $code . '",
-            error: "' . $error . '",
-            error_description: "' . \Drupal::request()->query->get('error_description') . '",
-            state: "' . $state . '"
-          }
-        }, window.location.origin);
-      </script>'
-    ];
+    // return [
+    //   '#markup' => '<script>
+    //     window.parent.postMessage({
+    //       wso2Auth: {
+    //         code: "' . $code . '",
+    //         error: "' . $error . '",
+    //         error_description: "' . \Drupal::request()->query->get('error_description') . '",
+    //         state: "' . $state . '"
+    //       }
+    //     }, window.location.origin);
+    //   </script>'
+    // ];
 
     // Prendi la richiesta corrente
     $request = $this->requestStack->getCurrentRequest();
@@ -240,7 +243,12 @@ class WSO2AuthController extends ControllerBase {
     ]);
 
     // Reindirizza alla destinazione o alla pagina principale
+    $this->getLogger('wso2_auth')->notice('Redirect con destination: @type', [
+      '@type' => $destination,
+    ]);
     if (!empty($destination)) {
+      // Dopo aver autenticato l'utente
+      $destination = Url::fromUserInput($destination)->setAbsolute()->toString();
       return new RedirectResponse($destination);
     }
 
