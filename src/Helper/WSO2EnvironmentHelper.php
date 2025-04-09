@@ -35,11 +35,11 @@ class WSO2EnvironmentHelper {
    * @var array
    */
   protected $stagingConfig = [
-    'auth_server_url' => 'https://stage-id.055055.it:9443/oauth2',
+    'auth_server_url' => 'https://id-staging.055055.it:9443/oauth2',
     'auth_endpoint' => '/authorize',
     'token_endpoint' => '/token',
     'userinfo_endpoint' => '/userinfo',
-    'logout_url' => 'https://stage-id.055055.it:9443/oidc/logout',
+    'logout_url' => 'https://id-staging.055055.it:9443/oidc/logout',
   ];
 
   /**
