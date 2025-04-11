@@ -45,12 +45,17 @@
 
           // Converti l'intervallo da minuti a millisecondi
           // Usa parseFloat per assicurarsi che i valori decimali siano supportati
-          const checkIntervalMs = (parseFloat(idpConfig.checkInterval) || 0.5) * 60 * 1000;
+          const checkIntervalMs = (parseFloat(idpConfig.checkInterval) || 3) * 60 * 1000;
 
           // Se l'ultimo controllo negativo è stato fatto di recente, salta la verifica
           if (timeDiff < checkIntervalMs) {
             debugLog('Verifica IdP saltata: controllo negativo recente', new Date(lastCheckTime));
-            debugLog('Prossimo controllo tra ' + Math.ceil((checkIntervalMs - timeDiff) / 60000) + ' minuti');
+            // Visualizza il tempo rimanente in minuti e secondi per maggiore precisione
+            const minutesRemaining = Math.floor((checkIntervalMs - timeDiff) / 60000);
+            const secondsRemaining = Math.floor(((checkIntervalMs - timeDiff) % 60000) / 1000);
+            debugLog('Prossimo controllo tra ' +
+                    (minutesRemaining > 0 ? minutesRemaining + ' minuti e ' : '') +
+                    secondsRemaining + ' secondi');
             return;
           }
         }
