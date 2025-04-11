@@ -44,7 +44,8 @@
           const timeDiff = currentTime - lastCheckTime;
 
           // Converti l'intervallo da minuti a millisecondi
-          const checkIntervalMs = (idpConfig.checkInterval || 3) * 60 * 1000;
+          // Usa parseFloat per assicurarsi che i valori decimali siano supportati
+          const checkIntervalMs = (parseFloat(idpConfig.checkInterval) || 0.5) * 60 * 1000;
 
           // Se l'ultimo controllo negativo è stato fatto di recente, salta la verifica
           if (timeDiff < checkIntervalMs) {
