@@ -156,6 +156,7 @@ class WSO2AuthController extends ControllerBase {
     $error = \Drupal::request()->query->get('error');
     $state = \Drupal::request()->query->get('state');
 
+    /** debug, scommentare per visualizizare risposta e terminare il processo */
     // return [
     //   '#markup' => '<script>
     //     window.parent.postMessage({
