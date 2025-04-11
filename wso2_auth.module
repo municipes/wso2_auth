@@ -37,7 +37,7 @@ function wso2_auth_form_user_login_form_alter(&$form, FormStateInterface $form_s
   $config = \Drupal::config('wso2_auth.settings');
 
   // Add buttons for citizen and operator login
-  if ($config->get('citizen_enabled')) {
+  if ($config->get('general.citizen_enabled')) {
     $form['wso2_auth_citizen'] = [
       '#type' => 'link',
       '#title' => t('Login con SPID/CIE (Cittadino)'),
