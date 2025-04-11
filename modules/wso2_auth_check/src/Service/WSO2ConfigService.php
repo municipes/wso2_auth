@@ -4,7 +4,7 @@ namespace Drupal\wso2_auth_check\Service;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
-// use Drupal\wso2silfi\Helper\Status;
+use Drupal\wso2_auth\Helper\WSO2EnvironmentHelper;
 
 /**
  * Service per la gestione della configurazione WSO2.
@@ -26,11 +26,11 @@ class WSO2ConfigService {
   protected $moduleHandler;
 
   /**
-   * The wso2silfi status.
+   * The environment helper.
    *
-   * @var \Drupal\wso2silfi\Helper\Status
+   * @var \Drupal\wso2_auth\Helper\WSO2EnvironmentHelper
    */
-  // protected $status;
+  protected $environmentHelper;
 
   /**
    * Costruttore.
@@ -39,13 +39,13 @@ class WSO2ConfigService {
    *   La factory per le configurazioni.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   Il gestore dei moduli.
-   * @param \Drupal\wso2silfi\Helper\Status $status
-   *   Il servizio per lo stato di wso2silfi.
+   * @param \Drupal\wso2_auth\Helper\WSO2EnvironmentHelper $environment_helper
+   *   The environment helper.
    */
-  public function __construct(ConfigFactoryInterface $config_factory, ModuleHandlerInterface $module_handler) {
+  public function __construct(ConfigFactoryInterface $config_factory, ModuleHandlerInterface $module_handler, WSO2EnvironmentHelper $environment_helper = NULL) {
     $this->configFactory = $config_factory;
     $this->moduleHandler = $module_handler;
-    // $this->status = $status;
+    $this->environmentHelper = $environment_helper ?: new WSO2EnvironmentHelper($config_factory);
   }
 
   /**
@@ -119,8 +119,12 @@ class WSO2ConfigService {
     // Usa wso2_auth se disponibile.
     if ($this->moduleHandler->moduleExists('wso2_auth')) {
       $auth_config = $this->configFactory->get('wso2_auth.settings');
+      // Ottieni URL e endpoint del server di autenticazione
+      $auth_server_url = $this->environmentHelper->getAuthServerUrl();
+      $auth_endpoint = $this->environmentHelper->getAuthEndpoint();
+      $full_auth_url = $auth_server_url . $auth_endpoint;
       if ($auth_config->get('enabled')) {
-        $config['idpUrl'] = $auth_config->get('auth_server_url');
+        $config['idpUrl'] = $full_auth_url;
         $config['redirectUri'] = \Drupal::request()->getSchemeAndHttpHost() . '/wso2-auth-callback';
         $config['clientId'] = $auth_config->get('citizen.client_id');
         $config['loginPath'] = '/wso2-auth/authorize/citizen';
