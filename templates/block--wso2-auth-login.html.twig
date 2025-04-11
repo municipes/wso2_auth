@@ -5,7 +5,7 @@
  */
 #}
 <div class="row oaut2--silfi--block">
- {% set href = path('wso2silfi.connect', { 'access_type': profile }) %}
+ {% set href = path('wso2_auth.authorize', { 'type': profile }) %}
   <a href="{{ href }}?destination={{ requestUri }}">
     <img src="/{{ module_path }}/images/Sign-in-with-WSO2-lighter-small.png" title="{{ title }}">
   </a>
