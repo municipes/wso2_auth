@@ -43,11 +43,11 @@ class WSO2AuthCheckSettingsForm extends ConfigFormBase {
     }
     else {
       // Mostra quale modulo verrà utilizzato
-      if ($wso2silfi_enabled) {
-        $this->messenger()->addStatus($this->t('Configurazione da wso2silfi (priorità più alta)'));
+      if ($wso2_auth_enabled) {
+        $this->messenger()->addStatus($this->t('Configurazione da wso2_auth - nuovo modulo (priorità più alta)'));
       }
       else {
-        $this->messenger()->addStatus($this->t('Configurazione da wso2_auth'));
+        $this->messenger()->addStatus($this->t('Configurazione da wso2silfi'));
       }
     }
 

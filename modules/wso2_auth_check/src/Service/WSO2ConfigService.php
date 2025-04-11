@@ -73,7 +73,7 @@ class WSO2ConfigService {
     $wso2_auth_enabled = $this->moduleHandler->moduleExists('wso2_auth') &&
       $this->configFactory->get('wso2_auth.settings')->get('enabled');
 
-    return $wso2silfi_enabled || $wso2_auth_enabled;
+    return $wso2_auth_enabled || $wso2silfi_enabled;
   }
 
   /**
@@ -116,19 +116,22 @@ class WSO2ConfigService {
       'debug' => $this->isDebugEnabled(),
     ];
 
-    // Verifica e usa wso2silfi se disponibile.
+    // Usa wso2_auth se disponibile.
+    if ($this->moduleHandler->moduleExists('wso2_auth')) {
+      $auth_config = $this->configFactory->get('wso2_auth.settings');
+      if ($auth_config->get('enabled')) {
+        $config['idpUrl'] = $auth_config->get('auth_server_url');
+        $config['redirectUri'] = \Drupal::request()->getSchemeAndHttpHost() . '/wso2-auth-callback';
+        $config['clientId'] = $auth_config->get('citizen.client_id');
+        $config['loginPath'] = '/wso2-auth/authorize/citizen';
+        return $config;
+      }
+    }
+
+    // Verifica e usa wso2silfi se disponibile e wso2_auth non è abilitato.
     if ($this->moduleHandler->moduleExists('wso2silfi')) {
       $silfi_config = $this->configFactory->get('wso2silfi.settings');
       if ($silfi_config->get('general.wso2silfi_enabled')) {
-        // $url = $this->status->authorizeUrlWso2();
-        // $parsed_url = parse_url($url);
-
-        // $base_url = $parsed_url['scheme'] . '://' . $parsed_url['host'];
-        // if (isset($parsed_url['port'])) {
-        //   $base_url .= ':' . $parsed_url['port'];
-        // }
-
-        // $server_url = $base_url; // Output: https://id.055055.it:9443
         $server_url = 'https://id.055055.it:9443';
         if ($silfi_config->get('general.stage')) {
           $server_url = 'https://id-staging.055055.it:9443';
@@ -139,18 +142,6 @@ class WSO2ConfigService {
         $config['redirectUri'] = \Drupal::request()->getSchemeAndHttpHost() . '/oauth2/authorized';
         $config['clientId'] = $silfi_config->get('citizen.client_id');
         $config['loginPath'] = '/wso2silfi/connect/cittadino';
-        return $config;
-      }
-    }
-
-    // Usa wso2_auth se disponibile e wso2silfi non è attivo.
-    if ($this->moduleHandler->moduleExists('wso2_auth')) {
-      $auth_config = $this->configFactory->get('wso2_auth.settings');
-      if ($auth_config->get('enabled')) {
-        $config['idpUrl'] = $auth_config->get('auth_server_url');
-        $config['redirectUri'] = \Drupal::request()->getSchemeAndHttpHost() . '/wso2-auth-callback';
-        $config['clientId'] = $auth_config->get('citizen.client_id');
-        $config['loginPath'] = '/wso2-auth/authorize/citizen';
         return $config;
       }
     }
