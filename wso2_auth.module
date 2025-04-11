@@ -10,8 +10,16 @@ use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Implements hook_help().
+ *
+ * This is a traditional hook implementation for backward compatibility.
+ * In Drupal 11.1+, the attribute-based implementation in HookImplementation.php
+ * will be used instead.
  */
 function wso2_auth_help($route_name, RouteMatchInterface $route_match) {
+  if (\Drupal::hasService('wso2_auth.hook_implementation')) {
+    return \Drupal::service('wso2_auth.hook_implementation')->help($route_name, $route_match);
+  }
+
   switch ($route_name) {
     case 'help.page.wso2_auth':
       $output = '';
@@ -23,8 +31,16 @@ function wso2_auth_help($route_name, RouteMatchInterface $route_match) {
 
 /**
  * Implements hook_theme().
+ *
+ * This is a traditional hook implementation for backward compatibility.
+ * In Drupal 11.1+, the attribute-based implementation in HookImplementation.php
+ * will be used instead.
  */
 function wso2_auth_theme($existing, $type, $theme, $path) {
+  if (\Drupal::hasService('wso2_auth.hook_implementation')) {
+    return \Drupal::service('wso2_auth.hook_implementation')->theme($existing, $type, $theme, $path);
+  }
+
   $module_handler = \Drupal::service('module_handler');
   $module_path = $module_handler->getModule('wso2_auth')->getPath();
   return [
@@ -42,8 +58,16 @@ function wso2_auth_theme($existing, $type, $theme, $path) {
 
 /**
  * Implements hook_form_FORM_ID_alter().
+ *
+ * This is a traditional hook implementation for backward compatibility.
+ * In Drupal 11.1+, the attribute-based implementation in HookImplementation.php
+ * will be used instead.
  */
 function wso2_auth_form_user_login_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+  if (\Drupal::hasService('wso2_auth.hook_implementation')) {
+    return \Drupal::service('wso2_auth.hook_implementation')->formAlter($form, $form_state, $form_id);
+  }
+
   // Get the WSO2 Auth service.
   $wso2_auth = \Drupal::service('wso2_auth.authentication');
 
@@ -92,8 +116,16 @@ function wso2_auth_form_user_login_form_alter(&$form, FormStateInterface $form_s
 
 /**
  * Implements hook_user_logout().
+ *
+ * This is a traditional hook implementation for backward compatibility.
+ * In Drupal 11.1+, the attribute-based implementation in HookImplementation.php
+ * will be used instead.
  */
 function wso2_auth_user_logout($account) {
+  if (\Drupal::hasService('wso2_auth.hook_implementation')) {
+    return \Drupal::service('wso2_auth.hook_implementation')->userLogout($account);
+  }
+
   // Get the WSO2 Auth service.
   $wso2_auth = \Drupal::service('wso2_auth.authentication');
 
@@ -113,8 +145,16 @@ function wso2_auth_user_logout($account) {
 
 /**
  * Implements hook_user_logout_redirect_alter().
+ *
+ * This is a traditional hook implementation for backward compatibility.
+ * In Drupal 11.1+, the attribute-based implementation in HookImplementation.php
+ * will be used instead.
  */
 function wso2_auth_user_logout_redirect_alter(&$response) {
+  if (\Drupal::hasService('wso2_auth.hook_implementation')) {
+    return \Drupal::service('wso2_auth.hook_implementation')->userLogoutRedirectAlter($response);
+  }
+
   // Get the current user before logout.
   $account = \Drupal::currentUser();
   $uid = $account->id();

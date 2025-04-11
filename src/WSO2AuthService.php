@@ -3,6 +3,8 @@
 namespace Drupal\wso2_auth;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Logger\LoggerChannelInterface;
 use Drupal\Core\Messenger\MessengerInterface;
 use Drupal\Core\Session\AccountInterface;
@@ -92,6 +94,20 @@ class WSO2AuthService {
   protected $environmentHelper;
 
   /**
+   * The module handler.
+   *
+   * @var \Drupal\Core\Extension\ModuleHandlerInterface
+   */
+  protected $moduleHandler;
+
+  /**
+   * The entity type manager.
+   *
+   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   */
+  protected $entityTypeManager;
+
+  /**
    * Whether debug mode is enabled.
    *
    * @var bool
@@ -119,6 +135,10 @@ class WSO2AuthService {
    *   The request stack.
    * @param \Symfony\Component\HttpFoundation\Session\SessionInterface $session
    *   The session.
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
+   *   The module handler service.
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
+   *   The entity type manager service.
    * @param \Drupal\wso2_auth\Helper\WSO2EnvironmentHelper $environment_helper
    *   The environment helper.
    */
@@ -132,7 +152,9 @@ class WSO2AuthService {
     MessengerInterface $messenger,
     RequestStack $request_stack,
     SessionInterface $session,
-    WSO2EnvironmentHelper $environment_helper = NULL
+    ModuleHandlerInterface $module_handler,
+    EntityTypeManagerInterface $entity_type_manager,
+    WSO2EnvironmentHelper $environment_helper
   ) {
     $this->httpClient = $http_client;
     $this->configFactory = $config_factory;
@@ -143,7 +165,9 @@ class WSO2AuthService {
     $this->messenger = $messenger;
     $this->requestStack = $request_stack;
     $this->session = $session;
-    $this->environmentHelper = $environment_helper ?: new WSO2EnvironmentHelper($config_factory);
+    $this->moduleHandler = $module_handler;
+    $this->entityTypeManager = $entity_type_manager;
+    $this->environmentHelper = $environment_helper;
 
     // Inizializza la variabile debug una sola volta
     $this->debug = $this->configFactory->get('wso2_auth.settings')->get('debug');
@@ -309,7 +333,7 @@ class WSO2AuthService {
 
     // Costruisci l'URL finale
     $built_url = $full_auth_url . '?' . http_build_query($params);
-    \Drupal::moduleHandler()->alter('wso2_auth_authorization_url', $built_url, $params);
+    $this->moduleHandler->alter('wso2_auth_authorization_url', $built_url, $params);
 
     if ($config->get('debug')) {
       $this->logger->debug('WSO2 Auth: URL di autorizzazione generato: @url', [
@@ -362,7 +386,7 @@ class WSO2AuthService {
     ];
 
     // Allow other modules to alter the token request
-    \Drupal::moduleHandler()->alter('wso2_auth_token_request', $params, $code);
+    $this->moduleHandler->alter('wso2_auth_token_request', $params, $code);
 
     try {
       $options = [
@@ -427,7 +451,7 @@ class WSO2AuthService {
     }
 
     // Allow other modules to alter the userinfo request
-    \Drupal::moduleHandler()->alter('wso2_auth_userinfo_request', $options, $access_token);
+    $this->moduleHandler->alter('wso2_auth_userinfo_request', $options, $access_token);
 
     try {
       // Get the authentication server URL from the environment helper
@@ -453,7 +477,7 @@ class WSO2AuthService {
       }
 
       // Allow other modules to alter the user data before authentication
-      \Drupal::moduleHandler()->alter('wso2_auth_userinfo', $data);
+      $this->moduleHandler->alter('wso2_auth_userinfo', $data);
 
       return $data;
     }
@@ -513,7 +537,7 @@ class WSO2AuthService {
 
       if (!empty($email)) {
         // Try to find an existing user with the same email
-        $existing_users = \Drupal::entityTypeManager()
+        $existing_users = $this->entityTypeManager
           ->getStorage('user')
           ->loadByProperties(['mail' => $email]);
 
@@ -540,7 +564,7 @@ class WSO2AuthService {
         }
         elseif (!empty($username)) {
           // If no user with this email exists, try to find by username
-          $existing_users = \Drupal::entityTypeManager()
+          $existing_users = $this->entityTypeManager
             ->getStorage('user')
             ->loadByProperties(['name' => $username]);
 
@@ -597,13 +621,21 @@ class WSO2AuthService {
       }
 
       // Check if the username already exists and modify it if necessary
-      if (user_load_by_name($user_info['name'])) {
+      $user_matches = $this->entityTypeManager->getStorage('user')
+        ->loadByProperties(['name' => $user_info['name']]);
+        
+      if (!empty($user_matches)) {
         $base_name = $user_info['name'];
         $i = 1;
-        while (user_load_by_name($user_info['name'] . '_' . $i)) {
+        
+        do {
+          $temp_name = $base_name . '_' . $i;
+          $user_matches = $this->entityTypeManager->getStorage('user')
+            ->loadByProperties(['name' => $temp_name]);
           $i++;
-        }
-        $user_info['name'] = $base_name . '_' . $i;
+        } while (!empty($user_matches));
+        
+        $user_info['name'] = $base_name . '_' . ($i - 1);
         $this->logger->notice('WSO2 Auth: Username @base already exists, using @new instead', [
           '@base' => $base_name,
           '@new' => $user_info['name'],
@@ -644,7 +676,7 @@ class WSO2AuthService {
         $this->externalAuth->userLoginFinalize($account, $authname, $provider);
 
         // Invoke hook_wso2_auth_post_login().
-        \Drupal::moduleHandler()->invokeAll('wso2_auth_post_login', [$account, $user_data, $auth_type]);
+        $this->moduleHandler->invokeAll('wso2_auth_post_login', [$account, $user_data, $auth_type]);
 
         return $account;
       }
@@ -804,7 +836,7 @@ class WSO2AuthService {
 
     // Allow other modules to alter the logout URL.
     $built_url = $logout_url . '?' . http_build_query($params);
-    \Drupal::moduleHandler()->alter('wso2_auth_logout_url', $built_url, $params);
+    $this->moduleHandler->alter('wso2_auth_logout_url', $built_url, $params);
 
     return $built_url;
   }

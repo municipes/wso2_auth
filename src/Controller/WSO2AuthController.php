@@ -2,6 +2,7 @@
 
 namespace Drupal\wso2_auth\Controller;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Routing\TrustedRedirectResponse;
 use Drupal\Core\Url;
@@ -39,6 +40,13 @@ class WSO2AuthController extends ControllerBase {
   protected $privilegesService;
 
   /**
+   * The config factory service.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
+   */
+  protected $configFactory;
+
+  /**
    * Whether debug mode is enabled.
    *
    * @var bool
@@ -54,18 +62,22 @@ class WSO2AuthController extends ControllerBase {
    *   The request stack.
    * @param \Drupal\wso2_auth\Service\OperatorPrivilegesService $privileges_service
    *   The operator privileges service.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
+   *   The config factory service.
    */
   public function __construct(
     WSO2AuthService $wso2_auth,
     RequestStack $request_stack,
-    OperatorPrivilegesService $privileges_service
+    OperatorPrivilegesService $privileges_service,
+    ConfigFactoryInterface $config_factory
   ) {
     $this->wso2Auth = $wso2_auth;
     $this->requestStack = $request_stack;
     $this->privilegesService = $privileges_service;
+    $this->configFactory = $config_factory;
 
     // Inizializza la variabile debug una sola volta
-    $this->debug = \Drupal::config('wso2_auth.settings')->get('debug');
+    $this->debug = $this->configFactory->get('wso2_auth.settings')->get('debug');
   }
 
   /**
@@ -75,7 +87,8 @@ class WSO2AuthController extends ControllerBase {
     return new static(
       $container->get('wso2_auth.authentication'),
       $container->get('request_stack'),
-      $container->get('wso2_auth.operator_privileges')
+      $container->get('wso2_auth.operator_privileges'),
+      $container->get('config.factory')
     );
   }
 
@@ -88,7 +101,7 @@ class WSO2AuthController extends ControllerBase {
    * @return \Symfony\Component\HttpFoundation\RedirectResponse
    *   A redirect response to the WSO2 authorization page.
    */
-  public function authorize($type = 'citizen') {
+  public function authorize($type = 'citizen'): RedirectResponse {
     // Get the current request.
     $request = $this->requestStack->getCurrentRequest();
 
@@ -151,10 +164,11 @@ class WSO2AuthController extends ControllerBase {
    * @return \Symfony\Component\HttpFoundation\RedirectResponse
    *   A redirect response after handling the callback.
    */
-  public function callback() {
-    $code = \Drupal::request()->query->get('code');
-    $error = \Drupal::request()->query->get('error');
-    $state = \Drupal::request()->query->get('state');
+  public function callback(): RedirectResponse {
+    $request = $this->requestStack->getCurrentRequest();
+    $code = $request->query->get('code');
+    $error = $request->query->get('error');
+    $state = $request->query->get('state');
 
     /** debug, scommentare per visualizizare risposta e terminare il processo */
     // return [
@@ -404,7 +418,7 @@ class WSO2AuthController extends ControllerBase {
    * @return \Symfony\Component\HttpFoundation\RedirectResponse
    *   A redirect response after logout.
    */
-  public function logout() {
+  public function logout(): RedirectResponse {
     // Prendi la richiesta corrente
     $request = $this->requestStack->getCurrentRequest();
     $config = $this->configFactory->get('wso2_auth.settings');
@@ -417,7 +431,7 @@ class WSO2AuthController extends ControllerBase {
 
     // Se non c'è una sessione WSO2, fai solo il logout da Drupal
     if (empty($wso2_session) || empty($wso2_session['id_token'])) {
-      user_logout();
+      $this->userLogout();
       return new RedirectResponse(Url::fromRoute('<front>')->toString());
     }
 
@@ -445,9 +459,18 @@ class WSO2AuthController extends ControllerBase {
     }
 
     // Fai il logout da Drupal
-    user_logout();
+    $this->userLogout();
 
     // Reindirizza all'URL di logout WSO2
     return new TrustedRedirectResponse($logout_url);
+  }
+
+  /**
+   * Helper method to logout a user.
+   *
+   * Replaces the deprecated user_logout() function.
+   */
+  protected function userLogout(): void {
+    $this->currentUser()->logout();
   }
 }

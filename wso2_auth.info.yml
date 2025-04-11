@@ -1,11 +1,11 @@
 name: WSO2 Authentication
 type: module
 description: 'Authentication with WSO2 Identity Server using OAuth2'
-core_version_requirement: ^10 || ^11
+core_version_requirement: ^10 || ^11.1
 package: Authentication
 dependencies:
   - externalauth:externalauth
 configure: wso2_auth.settings
+# php: 8.3
 
-
-version: 1.0.12
+version: 1.0.18

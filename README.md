@@ -124,6 +124,8 @@ Quando gli utenti effettuano il logout dal tuo sito Drupal, verranno anche disco
 
 ## Estendere il Modulo
 
+### Hook tradizionali
+
 Il modulo fornisce diversi hook che permettono ad altri moduli di alterarne il comportamento:
 
 - `hook_wso2_auth_userinfo_alter(&$user_data)`: Altera i dati utente ricevuti da WSO2 prima dell'autenticazione.
@@ -134,6 +136,58 @@ Il modulo fornisce diversi hook che permettono ad altri moduli di alterarne il c
 - `hook_wso2_auth_logout_url_alter(&$url, $params)`: Altera l'URL di logout.
 
 Vedi `wso2_auth.api.php` per ulteriori informazioni.
+
+### Implementazione con Attributi (Drupal 11.1+)
+
+A partire da Drupal 11.1, il modulo supporta l'implementazione tramite attributi PHP in classi orientate agli oggetti:
+
+#### 1. Hook con Attributi
+
+Il modulo utilizza il nuovo sistema `#[Hook]` per implementare hooks in modo orientato agli oggetti:
+
+```php
+use Drupal\Core\Hook\Attribute\Hook;
+
+class MyModuleHooks implements ContainerInjectionInterface {
+  // ...
+
+  #[Hook(hook: 'wso2_auth_userinfo_alter')]
+  public function alterUserInfo(&$user_data) {
+    // Altera i dati utente
+    $user_data['display_name'] = 'Prefisso: ' . $user_data['display_name'];
+  }
+  
+  #[Hook(hook: 'wso2_auth_post_login')]
+  public function onPostLogin($account, $user_data, $auth_type) {
+    // Reagisci al login completato
+  }
+}
+```
+
+#### 2. Plugin con Attributi (con compatibilità all'indietro)
+
+I blocchi e altri plugin sono implementati con entrambi i sistemi per garantire la compatibilità tra diverse versioni di Drupal:
+
+```php
+// Approccio con doppia dichiarazione (compatibile con Drupal 10 e 11)
+/**
+ * Provides a 'CitizenBlock' block.
+ *
+ * @Block(
+ *  id = "wso2_citizen_block",
+ *  admin_label = @Translation("WSO2 Blocco login Cittadino"),
+ * )
+ */
+#[Block(
+  id: "wso2_citizen_block",
+  admin_label: new TranslatableMarkup("WSO2 Blocco login Cittadino")
+)]
+class CitizenBlock extends BlockBase implements ContainerFactoryPluginInterface {
+```
+
+Drupal 11.1 utilizza la classe `AttributeDiscoveryWithAnnotations` per il rilevamento dei plugin, che verifica prima la presenza dell'annotazione e poi, se non trovata, cerca l'attributo. Questo permette una transizione fluida tra i due sistemi.
+
+Il modulo stesso utilizza questa implementazione con attributi internamente, mantenendo la compatibilità con la tradizionale implementazione dei hook tramite funzioni per le versioni precedenti di Drupal.
 
 ## Risoluzione dei Problemi
 
