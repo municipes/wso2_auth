@@ -138,13 +138,19 @@ class WSO2AuthOperatorSettingsForm extends ConfigFormBase {
       '#description' => $this->t('Application code for operator authentication.'),
     ];
 
-    $form['login'] = [
+    $form['bpo'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Base Privilegi Operatori'),
+      '#open' => TRUE,
+    ];
+
+    $form['bpo']['login'] = [
       '#type' => 'details',
       '#title' => $this->t('Login information (for BaseOperatore JWT token)'),
       '#open' => TRUE,
     ];
 
-    $form['login']['username'] = [
+    $form['bpo']['login']['username'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Username'),
       '#default_value' => $config->get('operator.username') ?? '',
@@ -153,13 +159,33 @@ class WSO2AuthOperatorSettingsForm extends ConfigFormBase {
       '#description' => $this->t('JWT authentication username.'),
     ];
 
-    $form['login']['password'] = [
+    $form['bpo']['login']['password'] = [
       '#type' => 'password',
       '#title' => $this->t('Password'),
       '#default_value' => '',
       '#size' => 25,
       '#maxlength' => 64,
       '#description' => $this->t('JWT authentication password. Leave blank to keep the existing value.'),
+    ];
+
+    $form['bpo']['service'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Privileges Service'),
+      '#open' => TRUE,
+    ];
+
+    $form['bpo']['service']['privileges_url'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Privileges Service URL'),
+      '#default_value' => $config->get('operator.privileges_url') ?? 'http://baseprivilegioperatore.cst:8080/baseprivilegioperatore/api',
+      '#description' => $this->t('The URL of the privileges service for operators.'),
+    ];
+
+    $form['bpo']['service']['privileges_stage_url'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Privileges Service URL (Staging)'),
+      '#default_value' => $config->get('operator.privileges_stage_url') ?? 'http://baseprivilegioperatori-staging.cst:8080/baseprivilegioperatore/api',
+      '#description' => $this->t('The URL of the staging privileges service for operators.'),
     ];
 
     $form['attributes'] = [
@@ -188,26 +214,6 @@ class WSO2AuthOperatorSettingsForm extends ConfigFormBase {
       '#description' => $this->t('The default role to assign to new operator accounts.'),
       '#options' => $this->getRoleOptions(),
       '#default_value' => $config->get('operator.user_role') ?? 'authenticated',
-    ];
-
-    $form['service'] = [
-      '#type' => 'details',
-      '#title' => $this->t('Privileges Service'),
-      '#open' => TRUE,
-    ];
-
-    $form['service']['privileges_url'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Privileges Service URL'),
-      '#default_value' => $config->get('operator.privileges_url') ?? 'http://baseprivilegioperatore.cst:8080/baseprivilegioperatore/api',
-      '#description' => $this->t('The URL of the privileges service for operators.'),
-    ];
-
-    $form['service']['privileges_stage_url'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Privileges Service URL (Staging)'),
-      '#default_value' => $config->get('operator.privileges_stage_url') ?? 'http://baseprivilegioperatori-staging.cst:8080/baseprivilegioperatore/api',
-      '#description' => $this->t('The URL of the staging privileges service for operators.'),
     ];
 
     return parent::buildForm($form, $form_state);
