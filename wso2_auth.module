@@ -40,7 +40,7 @@ function wso2_auth_form_user_login_form_alter(&$form, FormStateInterface $form_s
   if ($config->get('citizen_enabled')) {
     $form['wso2_auth_citizen'] = [
       '#type' => 'link',
-      '#title' => t('Login with SPID/CIE (Cittadino)'),
+      '#title' => t('Login con SPID/CIE (Cittadino)'),
       '#url' => \Drupal\Core\Url::fromRoute('wso2_auth.authorize', ['type' => 'citizen']),
       '#attributes' => [
         'class' => ['btn', 'btn-primary', 'me-5', 'mb-5', 'wso2-auth-button', 'citizen-login'],
