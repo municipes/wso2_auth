@@ -6,7 +6,7 @@ wso2_auth_check.settings:
       type: boolean
       label: 'Enable automatic authentication check'
     check_interval:
-      type: integer
+      type: float
       label: 'Check interval (minutes)'
     debug:
       type: boolean
