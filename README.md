@@ -1,141 +1,151 @@
-Ho analizzato attentamente il modulo WSO2 Authentication per Drupal. Ecco un README completo basato sul codice presente su GitHub:
-
-# WSO2 Authentication Module per Drupal
+# WSO2 Authentication Module
 
 ## Panoramica
 
-Il modulo WSO2 Authentication fornisce l'integrazione con WSO2 Identity Server per l'autenticazione degli utenti Drupal tramite OAuth2. Consente agli utenti di accedere al tuo sito Drupal utilizzando la loro identità WSO2, con supporto specifico per il sistema di autenticazione SPID (Sistema Pubblico di Identità Digitale).
+Il modulo WSO2 Authentication fornisce integrazione completa tra Drupal e il WSO2 Identity Server, consentendo l'autenticazione degli utenti tramite il protocollo OAuth2. È stato progettato specificamente per l'integrazione con i sistemi di identità digitale italiani (SPID/CIE) tramite WSO2 come intermediario.
+
+Il modulo supporta due tipologie di utenti:
+
+1. **Cittadini**: Utenti che accedono tramite SPID o CIE
+2. **Operatori**: Utenti istituzionali (dipendenti di PA, ecc) che accedono tramite credenziali specifiche
 
 ## Caratteristiche
 
+### Modulo Principale (wso2_auth)
+
 - Autenticazione OAuth2 con WSO2 Identity Server
-- Supporto per ambienti di staging e produzione
-- Registrazione automatica degli utenti
-- Mappatura dei campi tra WSO2 e i campi utente di Drupal
-- Mappatura di campi personalizzati come codice fiscale e numero di cellulare
-- Assegnazione automatica di ruoli per i nuovi utenti
-- Capacità di Single Sign-On (SSO)
-- Capacità di Single Logout (SLO)
-- Integrazione con il form di login di Drupal
-- Validazione della sessione e controlli di sicurezza
-- Opzione per saltare la verifica SSL in ambienti di sviluppo
-- Modalità di autenticazione separata per cittadini e operatori
+- Supporto completo per Drupal 10 e 11.1+
+- Implementazione completa Single Sign-On (SSO) e Single Logout (SLO)
+- Gestione distinta di utenti cittadini e operatori
+- Auto-registrazione degli utenti con mappatura campi configurabile
+- Blocchi di login personalizzati
+- Assegnazione automatica di ruoli con esclusioni
+- Gestione dei privilegi per gli operatori
+- Supporto per ambienti di produzione e staging
+- Modalità debug per la risoluzione dei problemi
+- Compatibilità con lo standard OpenID Connect
 
-## Funzionalità Single Sign-On (SSO)
+### Sottomodulo (wso2_auth_check)
 
-Il modulo supporta due principali scenari SSO:
-
-1. **Navigazione standard**: Quando un utente arriva sul sito Drupal come inizio navigazione, non viene reindirizzato automaticamente all'autenticazione se non effettua un login esplicito.
-
-2. **Autenticazione tramite altro sito**: Se l'utente si è già autenticato presso l'IdP WSO2 tramite un altro sito, quando arriva sul sito Drupal viene automaticamente autenticato senza alcun intervento utente, in modo completamente trasparente.
+- Rilevamento trasparente e automatico della sessione WSO2 attiva
+- Auto-login per utenti già autenticati presso l'Identity Provider
+- Controllo via iframe con intervallo configurabile
+- Funzionamento completamente client-side con JavaScript
+- Supporto per diverse configurazioni di Identity Provider
+- Compatibilità multi-modulo (supporta anche wso2silfi se presente)
 
 ## Requisiti
 
-- Drupal 10 o 11
-- Modulo [External Auth](https://www.drupal.org/project/externalauth)
-- WSO2 Identity Server con supporto OAuth2
+- Drupal 10 o 11.1+
+- PHP 8.1+ (PHP 8.3 raccomandato per Drupal 11)
+- Modulo [externalauth](https://www.drupal.org/project/externalauth)
+- WSO2 Identity Server con supporto OAuth2/OpenID Connect
 
 ## Installazione
 
-1. Scarica e installa il modulo come faresti con qualsiasi modulo Drupal:
-
 ```bash
 composer require municipes/wso2_auth
-drush en wso2_auth
+drush en wso2_auth wso2_auth_check
 ```
-
-2. Configura le impostazioni del modulo in Amministrazione » Configurazione » Persone » Impostazioni WSO2 Authentication (/admin/config/people/wso2-auth).
 
 ## Configurazione
 
-### Configurazione del WSO2 Identity Server
+### Configurazione del Server WSO2
 
 Prima di configurare il modulo, è necessario impostare un'applicazione OAuth2 nel WSO2 Identity Server:
 
-1. Accedi alla console di gestione del WSO2 Identity Server.
-2. Registra una nuova applicazione OAuth2 con le seguenti impostazioni:
+1. Registra una nuova applicazione OAuth2 con le seguenti impostazioni:
    - URL di callback: `https://tuositodrupal.it/wso2-auth/callback`
    - Tipi di grant: Authorization Code
    - Scope richiesti: openid
 
-3. Prendi nota del Client ID e del Client Secret forniti da WSO2.
+2. Configura l'Identity Server per l'integrazione con i fornitori d'identità (IdP) SPID e CIE, se necessario.
 
-### Configurazione del Modulo
+### Configurazione del Modulo WSO2 Authentication
 
 #### Impostazioni Generali
 
-1. Vai a Amministrazione » Configurazione » Persone » Impostazioni WSO2 Authentication (/admin/config/people/wso2-auth).
-2. Abilita il modulo WSO2 Authentication.
-3. Scegli se utilizzare l'ambiente di staging o produzione.
-4. Inserisci le informazioni del server WSO2:
-   - URL del server di autenticazione: L'URL dell'endpoint OAuth2 del tuo WSO2 Identity Server (es., https://id.055055.it:9443/oauth2)
-   - ID entità (agEntityId): L'ID entità da utilizzare per l'autenticazione (es., FIRENZE)
-   - ID entità (comEntityId): Il parametro aggiuntivo comEntityId
+1. Vai a Amministrazione » Configurazione » Persone » Impostazioni WSO2 Authentication (`/admin/config/people/wso2-auth`).
+2. Abilita il modulo e configura:
+   - URL del server di autenticazione (es. `https://id.055055.it:9443/oauth2`)
+   - ID entità (agEntityId): L'ID entità da utilizzare per l'autenticazione (es. "FIRENZE")
+   - Modalità (produzione o staging)
+   - Opzioni di visualizzazione (logo SPID nel form)
 
-5. Configura le impostazioni di aspetto:
-   - Abilita logo SPID nel form di login: Mostra o nascondi il logo SPID nel form di login
+#### Impostazioni per Cittadini
 
-6. Configura le impostazioni avanzate:
-   - Auto-redirect al login WSO2: Reindirizza automaticamente gli utenti anonimi alla pagina di login WSO2
-   - Abilita auto-login (Single Sign-On): Autentica automaticamente gli utenti già loggati in WSO2 quando visitano il sito
-   - Abilita modalità debug: Registra informazioni aggiuntive per il debugging
-   - Salta verifica SSL: Salta la verifica del certificato SSL (solo per sviluppo)
+1. Configura OAuth2:
+   - Client ID e Client Secret
+   - Scope OAuth2 (es. "openid")
 
-#### Impostazioni Cittadini
+2. Impostazioni utenti:
+   - Auto-registrazione: abilita/disabilita
+   - Ruolo predefinito da assegnare
+   - Ruoli da escludere dall'assegnazione automatica
 
-1. Configura le informazioni OAuth2:
-   - Client ID OAuth2: Il client ID ottenuto da WSO2
-   - Client Secret OAuth2: Il client secret ottenuto da WSO2
-   - Scope OAuth2: Lo scope richiesto per l'autenticazione (es., openid)
+3. Mappatura campi:
+   - Imposta quali campi del JWT mappare ai campi utente Drupal
+   - Configurazioni specifiche per codice fiscale e altri dati personali
 
-2. Configura le impostazioni utente:
-   - Auto-registrazione utenti: Registra automaticamente i nuovi utenti quando si autenticano con WSO2
-   - Ruolo da assegnare: Il ruolo da assegnare ai nuovi utenti registrati
-   - Ruoli da controllare: Ruoli da verificare quando un utente effettua l'accesso
+#### Impostazioni per Operatori
 
-3. Configura le mappature dei campi:
-   - Mappa i campi WSO2 ai campi utente Drupal
-   - Configura le mappature per codice fiscale e numero di cellulare se disponibili
+1. Abilita l'autenticazione per operatori e configura:
+   - Client ID e Client Secret specifici
+   - Parametri per l'autenticazione operatore
 
-#### Impostazioni Operatori
+2. Configurazione privilegi:
+   - Regole di mappatura ruoli basate sulle funzioni dell'operatore
+   - URL del servizio privilegi per gli operatori
 
-1. Abilita l'autenticazione per gli operatori.
-2. Configura le informazioni OAuth2 specifiche per gli operatori.
-3. Configura i parametri specifici per gli operatori (ente, app).
-4. Configura le regole di mappatura dei ruoli basate sulle funzioni dell'operatore.
-5. Configura l'URL del servizio privilegi per gli operatori.
+### Configurazione del Modulo WSO2 Authentication Check
 
-## Utilizzo
+1. Vai a Amministrazione » Configurazione » Persone » Impostazioni WSO2 Auth Check (`/admin/config/people/wso2-auth-check`).
+2. Abilita il controllo automatico e configura:
+   - Intervallo di controllo (in minuti)
+   - Abilita/disabilita modalità debug
 
-### Login Utente
+## Funzionamento
 
-Una volta configurato, gli utenti possono accedere al tuo sito Drupal utilizzando le loro credenziali WSO2 in due modi:
+### Single Sign-On (SSO)
 
-1. Attraverso il form di login standard di Drupal, che includerà un pulsante "Accedi con WSO2".
-2. Visitando il percorso `/wso2-auth/authorize`, che li reindirizzerà alla pagina di login WSO2.
+Il modulo supporta due scenari principali:
 
-### Auto-login (Single Sign-On)
+1. **Autenticazione esplicita**: L'utente clicca sui pulsanti di login per SPID/CIE (cittadino) o Operatore.
 
-Se l'utente è già autenticato in WSO2 (tramite un altro sito che utilizza lo stesso IdP), quando visita il tuo sito Drupal verrà automaticamente autenticato se hai abilitato la funzione di auto-login. Questo processo è completamente trasparente per l'utente.
+2. **Autenticazione trasparente** (tramite wso2_auth_check): Se un utente ha già una sessione attiva con l'IdP WSO2, viene automaticamente autenticato in Drupal quando visita il sito, senza necessità di interazione.
 
-### Logout Utente
+### Single Logout (SLO)
 
-Quando gli utenti effettuano il logout dal tuo sito Drupal, verranno anche disconnessi dalla loro sessione WSO2 se fanno clic sul link "Logout" o visitano il percorso `/wso2-auth/logout`.
+Quando un utente effettua il logout da Drupal, viene anche disconnesso dalla sessione WSO2, garantendo un logout completo dal sistema.
+
+### Blocchi di Login
+
+Il modulo fornisce due blocchi di login che possono essere posizionati in qualsiasi regione:
+
+1. **Blocco Login Cittadino**: Per l'autenticazione tramite SPID/CIE
+2. **Blocco Login Operatore**: Per l'autenticazione specifica degli operatori
+
+## Sicurezza
+
+- Gestione sicura dello stato (state) per prevenire attacchi CSRF/XSRF
+- Protezione del token nonce per prevenire attacchi replay
+- Verifica dell'integrità del token JWT
+- Controlli di sessione per prevenire sessioni non autorizzate
+- Supporto HTTPS per tutte le comunicazioni
+- Opzione per saltare la verifica SSL in ambienti di sviluppo (non raccomandata in produzione)
 
 ## Estendere il Modulo
 
 ### Hook tradizionali
 
-Il modulo fornisce diversi hook che permettono ad altri moduli di alterarne il comportamento:
+Il modulo espone diversi hook per personalizzare il comportamento:
 
-- `hook_wso2_auth_userinfo_alter(&$user_data)`: Altera i dati utente ricevuti da WSO2 prima dell'autenticazione.
-- `hook_wso2_auth_post_login($account, $user_data)`: Reagisce a un'autenticazione riuscita.
-- `hook_wso2_auth_authorization_url_alter(&$url, $params)`: Altera l'URL di autorizzazione.
-- `hook_wso2_auth_token_request_alter(&$params, $code)`: Altera i parametri della richiesta del token.
-- `hook_wso2_auth_userinfo_request_alter(&$options, $access_token)`: Altera la richiesta di informazioni utente.
-- `hook_wso2_auth_logout_url_alter(&$url, $params)`: Altera l'URL di logout.
-
-Vedi `wso2_auth.api.php` per ulteriori informazioni.
+- `hook_wso2_auth_userinfo_alter(&$user_data)`: Modifica i dati utente prima dell'autenticazione
+- `hook_wso2_auth_post_login($account, $user_data, $auth_type)`: Esegue azioni dopo il login
+- `hook_wso2_auth_authorization_url_alter(&$url, $params)`: Modifica l'URL di autorizzazione
+- `hook_wso2_auth_token_request_alter(&$params, $code)`: Modifica i parametri della richiesta token
+- `hook_wso2_auth_userinfo_request_alter(&$options, $access_token)`: Modifica la richiesta userinfo
+- `hook_wso2_auth_logout_url_alter(&$url, $params)`: Modifica l'URL di logout
 
 ### Implementazione con Attributi (Drupal 11.1+)
 
@@ -143,30 +153,19 @@ A partire da Drupal 11.1, il modulo supporta l'implementazione tramite attributi
 
 #### 1. Hook con Attributi
 
-Il modulo utilizza il nuovo sistema `#[Hook]` per implementare hooks in modo orientato agli oggetti:
-
 ```php
 use Drupal\Core\Hook\Attribute\Hook;
 
 class MyModuleHooks implements ContainerInjectionInterface {
-  // ...
-
   #[Hook(hook: 'wso2_auth_userinfo_alter')]
   public function alterUserInfo(&$user_data) {
-    // Altera i dati utente
+    // Modifica i dati utente
     $user_data['display_name'] = 'Prefisso: ' . $user_data['display_name'];
-  }
-  
-  #[Hook(hook: 'wso2_auth_post_login')]
-  public function onPostLogin($account, $user_data, $auth_type) {
-    // Reagisci al login completato
   }
 }
 ```
 
 #### 2. Plugin con Attributi (con compatibilità all'indietro)
-
-I blocchi e altri plugin sono implementati con entrambi i sistemi per garantire la compatibilità tra diverse versioni di Drupal:
 
 ```php
 // Approccio con doppia dichiarazione (compatibile con Drupal 10 e 11)
@@ -185,29 +184,6 @@ I blocchi e altri plugin sono implementati con entrambi i sistemi per garantire 
 class CitizenBlock extends BlockBase implements ContainerFactoryPluginInterface {
 ```
 
-Drupal 11.1 utilizza la classe `AttributeDiscoveryWithAnnotations` per il rilevamento dei plugin, che verifica prima la presenza dell'annotazione e poi, se non trovata, cerca l'attributo. Questo permette una transizione fluida tra i due sistemi.
-
-Il modulo stesso utilizza questa implementazione con attributi internamente, mantenendo la compatibilità con la tradizionale implementazione dei hook tramite funzioni per le versioni precedenti di Drupal.
-
-## Risoluzione dei Problemi
-
-Se riscontri problemi con il modulo, prova quanto segue:
-
-1. Abilita la modalità debug nelle impostazioni del modulo per ottenere più informazioni nei log di Drupal.
-2. Controlla i log di Drupal per eventuali errori (Amministrazione » Rapporti » Messaggi recenti).
-3. Verifica che il tuo WSO2 Identity Server sia configurato correttamente e accessibile.
-4. Assicurati che l'URL di callback in WSO2 corrisponda all'URI di redirect configurato nelle impostazioni del modulo.
-5. Controlla che il client ID e il client secret siano corretti.
-6. Prova ad abilitare l'opzione "Salta verifica SSL" se stai avendo problemi relativi a SSL in un ambiente di sviluppo.
-
-## Considerazioni sulla Sicurezza
-
-- Utilizza sempre HTTPS per il tuo sito Drupal e il WSO2 Identity Server per prevenire attacchi man-in-the-middle.
-- Aggiorna regolarmente il modulo e le sue dipendenze per assicurarti di avere le ultime patch di sicurezza.
-- Il modulo implementa la validazione dello stato per prevenire attacchi CSRF durante il processo di autenticazione.
-- Considera di abilitare l'auto-logout per assicurarti che gli utenti siano completamente disconnessi da entrambi i sistemi.
-- Disabilita "Salta verifica SSL" negli ambienti di produzione.
-
 ## API
 
 Il modulo fornisce servizi che possono essere utilizzati da altri moduli:
@@ -221,23 +197,34 @@ if ($wso2_auth->isConfigured()) {
   // Fai qualcosa...
 }
 
-// Controlla se l'utente è autenticato con WSO2
-if ($wso2_auth->isUserAuthenticated()) {
-  // Fai qualcosa...
-}
+// Ottieni l'URL di autorizzazione
+$url = $wso2_auth->getAuthorizationUrl($destination, 'citizen');
 
 // Ottieni il servizio helper per l'ambiente
 $env_helper = \Drupal::service('wso2_auth.environment_helper');
-
-// Controlla se stai utilizzando l'ambiente di staging
-if ($env_helper->isStaging()) {
-  // Fai qualcosa...
-}
 ```
+
+## Risoluzione dei Problemi
+
+- Abilita la modalità debug nelle impostazioni di entrambi i moduli
+- Controlla i log di Drupal per messaggi dettagliati
+- Verifica la console del browser per gli errori JavaScript (per wso2_auth_check)
+- Assicurati che i certificati SSL siano validi
+- Controlla che l'URL di callback corrisponda a quello configurato nel WSO2 Identity Server
+
+## Compatibilità Drupal 11.1
+
+Il modulo è completamente compatibile con Drupal 11.1, utilizzando:
+
+- Dependency Injection moderno per tutti i servizi
+- Implementazione a doppio stile (attributi e annotazioni) per i plugin
+- Implementazione con attributi per gli hook
+- Type hinting completo e return types per tutte le classi
+- Supporto per PHP 8.3
 
 ## Crediti
 
-Questo modulo è stato sviluppato da Maurizio Cavalletti e altri contributori, basato sulle specifiche del protocollo OAuth2 e dell'integrazione con WSO2 Identity Server.
+Questo modulo è stato sviluppato da Maurizio Cavalletti come parte del progetto di integrazione dei sistemi di identità digitale italiani (SPID/CIE) con le piattaforme Drupal per la Pubblica Amministrazione.
 
 ## Licenza
 
