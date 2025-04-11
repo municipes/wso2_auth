@@ -26,6 +26,16 @@
         const idpConfig = drupalSettings.wso2AuthCheck || {};
         debugLog('WSO2AuthCheck inizializzato con config da modulo attivo:', idpConfig);
 
+        // NUOVA FUNZIONALITÀ: Verifica se l'utente è già autenticato su Drupal
+        // Controlliamo se l'utente è già loggato su Drupal
+        const isUserLoggedIn = drupalSettings.user && drupalSettings.user.uid > 0;
+
+        if (isUserLoggedIn) {
+          // L'utente è già loggato su Drupal, saltiamo il controllo
+          debugLog('Utente già autenticato su Drupal (uid: ' + drupalSettings.user.uid + '). Controllo IdP saltato.');
+          return;
+        }
+
         // Controlla se abbiamo già verificato recentemente che l'utente NON è autenticato
         const notAuthenticated = localStorage.getItem('wso2_auth_not_authenticated');
         if (notAuthenticated) {
