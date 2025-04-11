@@ -304,7 +304,7 @@ class WSO2AuthService {
 
     // Parametri speciali per gli operatori se necessario
     if ($type === 'operator') {
-      $params['isAuthOperator'] = 'yes';
+      $params['isAuthSilfi'] = 'yes';
     }
 
     // Costruisci l'URL finale
@@ -695,6 +695,8 @@ class WSO2AuthService {
     // Update fiscal code if available.
     $fiscal_code_key = !empty($mapping['fiscal_code']) ? $mapping['fiscal_code'] : 'cn';
     if (!empty($user_data[$fiscal_code_key]) && $account->hasField('field_user_fiscalcode')) {
+      $user_data[$fiscal_code_key] = substr($user_data[$fiscal_code_key], 0, 16);
+      $user_data[$fiscal_code_key] = strtoupper($user_data[$fiscal_code_key]);
       $account->set('field_user_fiscalcode', $user_data[$fiscal_code_key]);
       $updated = TRUE;
     }
