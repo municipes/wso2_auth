@@ -67,9 +67,9 @@ class WSO2AuthCheckSettingsForm extends ConfigFormBase {
     $form['check_interval'] = [
       '#type' => 'number',
       '#title' => $this->t('Intervallo tra i controlli (minuti)'),
-      '#description' => $this->t('Tempo minimo in minuti tra due controlli consecutivi per utenti non autenticati. Impostare a -1 per disabilitare il controllo automatico.'),
-      '#default_value' => $config->get('check_interval') ?? -1,
-      '#min' => -1,
+      '#description' => $this->t('Tempo minimo in minuti tra due controlli consecutivi per utenti non autenticati.'),
+      '#default_value' => $config->get('check_interval') ?? 1,
+      '#min' => 1,
       '#max' => 60,
       '#step' => 1,
       '#required' => TRUE,
