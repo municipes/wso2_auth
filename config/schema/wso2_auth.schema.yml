@@ -18,6 +18,9 @@ wso2_auth.settings:
     com_entity_id:
       type: string
       label: 'Entity ID (comEntityId)'
+    citizen_enabled:
+      type: boolean
+      label: 'Enable citizen authentication button'
     picture_enabled:
       type: boolean
       label: 'Enable picture on login form'

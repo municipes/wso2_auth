@@ -117,9 +117,16 @@ class WSO2AuthGeneralSettingsForm extends ConfigFormBase {
       '#open' => TRUE,
     ];
 
+    $form['appearance']['citizen_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Abilita login cittadino su pagina user'),
+      '#default_value' => $config->get('citizen_enabled') ?? FALSE,
+      // '#description' => $this->t('Display identity provider logo on the login form.'),
+    ];
+
     $form['appearance']['picture_enabled'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Enable SPID logo on login form'),
+      '#title' => $this->t('Abilita login operatore su pagina user'),
       '#default_value' => $config->get('picture_enabled') ?? FALSE,
       '#description' => $this->t('Display identity provider logo on the login form.'),
     ];
@@ -167,6 +174,7 @@ class WSO2AuthGeneralSettingsForm extends ConfigFormBase {
       ->set('ag_entity_id', $values['ag_entity_id'])
       ->set('com_entity_id', $values['com_entity_id'])
       ->set('picture_enabled', (bool) $values['picture_enabled'])
+      ->set('citizen_enabled', (bool) $values['citizen_enabled'])
       ->set('auto_login', (bool) $values['auto_login'])
       ->set('debug', (bool) $values['debug'])
       ->save();
