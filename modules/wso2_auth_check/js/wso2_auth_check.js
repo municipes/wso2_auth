@@ -55,7 +55,7 @@
 
           // Costruisci l'URL di redirect con la destination dinamica
           const redirectUrl = (idpConfig.loginPath || '/wso2-auth/authorize/citizen') +
-                              (currentPath ? '?destination=' + encodeURIComponent(currentPath) : '');
+                              (currentPath ? '?destinazione=' + encodeURIComponent(currentPath) : '');
 
           debugLog('Reindirizzamento a', redirectUrl);
 
