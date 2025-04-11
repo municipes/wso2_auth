@@ -107,12 +107,12 @@ class WSO2AuthOperatorSettingsForm extends ConfigFormBase {
       '#description' => $this->t('The OAuth2 scope for operators.'),
     ];
 
-    $form['oauth2']['ag_entity_id'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Entity ID (agEntityId)'),
-      '#default_value' => $config->get('operator.ag_entity_id') ?? $config->get('ag_entity_id') ?? '',
-      '#description' => $this->t('The entity ID to use for operator authentication.'),
-    ];
+    // $form['oauth2']['ag_entity_id'] = [
+    //   '#type' => 'textfield',
+    //   '#title' => $this->t('Entity ID (agEntityId)'),
+    //   '#default_value' => $config->get('operator.ag_entity_id') ?? $config->get('ag_entity_id') ?? '',
+    //   '#description' => $this->t('The entity ID to use for operator authentication.'),
+    // ];
 
     $form['params'] = [
       '#type' => 'details',
@@ -140,7 +140,7 @@ class WSO2AuthOperatorSettingsForm extends ConfigFormBase {
 
     $form['login'] = [
       '#type' => 'details',
-      '#title' => $this->t('Login information (for JWT token)'),
+      '#title' => $this->t('Login information (for BaseOperatore JWT token)'),
       '#open' => TRUE,
     ];
 
@@ -260,7 +260,7 @@ class WSO2AuthOperatorSettingsForm extends ConfigFormBase {
       ->set('operator.client_id', $values['client_id'])
       ->set('operator.client_secret', $values['client_secret'])
       ->set('operator.scope', $values['scope'])
-      ->set('operator.ag_entity_id', $values['ag_entity_id'])
+      // ->set('operator.ag_entity_id', $values['ag_entity_id'])
       ->set('operator.ente', $values['ente'])
       ->set('operator.app', $values['app'])
       ->set('operator.username', $values['username'])
