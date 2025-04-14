@@ -40,9 +40,10 @@ function wso2_auth_check_page_attachments(array &$attachments) {
     // Verifica se siamo in una pagina di callback per l'autenticazione
     $current_path = \Drupal::service('path.current')->getPath();
     if (strpos($current_path, '/wso2-auth-callback') === 0
-      || strpos($current_path, '/oauth2/authorized') === 0) {
-      // Non caricare il JavaScript sull'iframe o la pagina di callback
-      $config_service->debug('Pagina di callback rilevata, skip caricamento JS');
+      || strpos($current_path, '/oauth2/authorized') === 0
+      || strpos($current_path, '/user') === 0) {
+      // Non caricare il JavaScript sull'iframe, pagina di callback o pagine utente
+      $config_service->debug('Pagina di callback o utente rilevata, skip caricamento JS');
       return;
     }
 
