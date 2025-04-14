@@ -7,4 +7,4 @@ dependencies: []
   # - wso2_auth:wso2_auth
 # php: 8.3
 
-version: 1.0.15
+version: 1.0.16
