@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 /**
  * Controller per la gestione dell'autenticazione WSO2.
  */
-class WSO2AuthController extends ControllerBase {
+class WSO2AuthCheckController extends ControllerBase {
 
   /**
    * {@inheritdoc}

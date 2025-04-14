@@ -69,9 +69,10 @@
           const currentPath = window.location.pathname + window.location.search + window.location.hash;
           debugLog('Path corrente rilevato:', currentPath);
 
-          // Costruisci l'URL di redirect con la destination dinamica
+          // Costruisci l'URL di redirect con la destination dinamica e un parametro nocache
           const redirectUrl = (idpConfig.loginPath || '/wso2-auth/authorize/citizen') +
-                              (currentPath ? '?destinazione=' + encodeURIComponent(currentPath) : '');
+                              (currentPath ? '?destinazione=' + encodeURIComponent(currentPath) : '?nc=' + Date.now()) +
+                              (currentPath ? '&nc=' + Date.now() : '');
 
           debugLog('Reindirizzamento a', redirectUrl);
 
@@ -122,6 +123,8 @@
         authCheckUrl.searchParams.append('scope', 'openid');
         authCheckUrl.searchParams.append('prompt', 'none');
         authCheckUrl.searchParams.append('nonce', nonce);
+        // Aggiungi un parametro per evitare la cache del browser
+        authCheckUrl.searchParams.append('nc', Date.now().toString());
         // authCheckUrl.searchParams.append('response_mode', 'web_message');
 
         debugLog('URL iframe:', authCheckUrl.toString());

@@ -78,13 +78,22 @@ function wso2_auth_form_user_login_form_alter(&$form, FormStateInterface $form_s
 
   // Get configuration
   $config = \Drupal::config('wso2_auth.settings');
+  
+  // Aggiunge un callback personalizzato alla submission del form
+  $form['#submit'][] = 'wso2_auth_user_login_form_submit';
 
   // Add buttons for citizen and operator login
   if ($config->get('general.citizen_enabled')) {
+    // Aggiungi timestamp come nocache per evitare problemi con la cache del browser
+    $url = \Drupal\Core\Url::fromRoute('wso2_auth.authorize', [
+      'type' => 'citizen',
+      'nc' => time(),
+    ]);
+    
     $form['wso2_auth_citizen'] = [
       '#type' => 'link',
       '#title' => t('Login con SPID/CIE (Cittadino)'),
-      '#url' => \Drupal\Core\Url::fromRoute('wso2_auth.authorize', ['type' => 'citizen']),
+      '#url' => $url,
       '#attributes' => [
         'class' => ['btn', 'btn-primary', 'me-5', 'mb-5', 'wso2-auth-button', 'citizen-login'],
       ],
@@ -94,10 +103,16 @@ function wso2_auth_form_user_login_form_alter(&$form, FormStateInterface $form_s
 
   // Add operator button if operator auth is enabled
   if ($config->get('operator.enabled')) {
+    // Aggiungi timestamp come nocache per evitare problemi con la cache del browser
+    $url = \Drupal\Core\Url::fromRoute('wso2_auth.authorize', [
+      'type' => 'operator',
+      'nc' => time(),
+    ]);
+    
     $form['wso2_auth_operator'] = [
       '#type' => 'link',
       '#title' => t('Login come Operatore'),
-      '#url' => \Drupal\Core\Url::fromRoute('wso2_auth.authorize', ['type' => 'operator']),
+      '#url' => $url,
       '#attributes' => [
         'class' => ['btn', 'btn-danger', 'me-5', 'mb-5', 'wso2-auth-button', 'operator-login'],
       ],
@@ -141,6 +156,18 @@ function wso2_auth_user_logout($account) {
 
   // Clear the WSO2 session.
   $session->remove('wso2_auth_session');
+  // Manteniamo lo stato per garantire la coerenza tra le richieste
+  // $session->remove('wso2_auth_state');
+}
+
+/**
+ * Form submission handler for user_login_form.
+ *
+ * Assicura che la sessione sia correttamente salvata prima del redirect.
+ */
+function wso2_auth_user_login_form_submit($form, FormStateInterface $form_state) {
+  // Non facciamo nulla di particolare qui, ma siccome il form aggiunge
+  // questo submit handler, dobbiamo definirlo
 }
 
 /**

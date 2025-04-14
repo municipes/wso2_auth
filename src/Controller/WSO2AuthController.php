@@ -111,6 +111,18 @@ class WSO2AuthController extends ControllerBase {
   public function authorize($type = 'citizen'): RedirectResponse {
     // Get the current request.
     $request = $this->requestStack->getCurrentRequest();
+    
+    // Assicurati che esista una sessione PHP
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+      session_start();
+    }
+    
+    // Log dell'ID sessione per debug
+    if ($this->debug) {
+      $this->getLogger('wso2_auth')->debug('Authorize method called with session ID: @sid', [
+        '@sid' => session_id(),
+      ]);
+    }
 
     // Check if WSO2 authentication is configured.
     if (!$this->wso2Auth->isConfigured()) {
@@ -184,11 +196,23 @@ class WSO2AuthController extends ControllerBase {
    *   A redirect response after handling the callback.
    */
   public function callback(): RedirectResponse {
+    // Assicurati che esista una sessione PHP
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+      session_start();
+    }
+    
     $request = $this->requestStack->getCurrentRequest();
     $code = $request->query->get('code');
     $error = $request->query->get('error');
     $state = $request->query->get('state');
 
+    // Log dell'ID sessione per debug
+    if ($this->debug) {
+      $this->getLogger('wso2_auth')->debug('Callback method called with session ID: @sid', [
+        '@sid' => session_id(),
+      ]);
+    }
+    
     /** debug, scommentare per visualizizare risposta e terminare il processo */
     // return [
     //   '#markup' => '<script>
@@ -202,9 +226,6 @@ class WSO2AuthController extends ControllerBase {
     //     }, window.location.origin);
     //   </script>'
     // ];
-
-    // Prendi la richiesta corrente
-    $request = $this->requestStack->getCurrentRequest();
 
     // Prendi il codice di autorizzazione e lo state dalla richiesta
     $code = $request->query->get('code');
@@ -221,8 +242,9 @@ class WSO2AuthController extends ControllerBase {
     // Prendi la sessione
     $session = $request->getSession();
     if ($this->debug) {
-      $this->getLogger('wso2_auth')->notice('Recupero sessione: @code', [
-        '@code' => $session->get('wso2_auth_type', 'citizen'),
+      $this->getLogger('wso2_auth')->notice('Recupero sessione: tipo=@tipo, stato=@stato', [
+        '@tipo' => $session->get('wso2_auth_type', 'citizen'),
+        '@stato' => $session->get('wso2_auth_state') ?: 'null',
       ]);
     }
 
@@ -238,6 +260,13 @@ class WSO2AuthController extends ControllerBase {
     // Verifica il parametro state
     if (!$this->wso2Auth->verifyState($state)) {
       $this->messenger()->addError($this->t('Parametro state non valido.'));
+      if ($this->debug) {
+        $stored_state = $request->getSession()->get('wso2_auth_state');
+        $this->getLogger('wso2_auth')->notice('Parametro state non valido: ricevuto @state, in sessione @stored_state', [
+          '@state' => $state,
+          '@stored_state' => $stored_state ?: 'null',
+        ]);
+      }
       $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
       $response->setPrivate();
       $response->headers->addCacheControlDirective('no-store');
@@ -246,6 +275,11 @@ class WSO2AuthController extends ControllerBase {
 
     // Prendi il tipo di autenticazione dalla sessione
     $authType = $session->get('wso2_auth_type', 'citizen');
+    if ($this->debug) {
+      $this->getLogger('wso2_auth')->notice('2^ Recupero sessione: @code', [
+        '@code' => $session->get('wso2_auth_type', 'citizen'),
+      ]);
+    }
 
     // Scambia il codice di autorizzazione per i token
     $tokens = $this->wso2Auth->getTokens($code);

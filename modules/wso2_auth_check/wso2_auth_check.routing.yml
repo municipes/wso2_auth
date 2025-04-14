@@ -9,7 +9,7 @@ wso2_auth_check.settings:
 wso2_auth_check.callback:
   path: '/wso2-auth-callback'
   defaults:
-    _controller: '\Drupal\wso2_auth_check\Controller\WSO2AuthController::handleCallback'
+    _controller: '\Drupal\wso2_auth_check\Controller\WSO2AuthCheckController::handleCallback'
     _title: 'WSO2 Auth Callback'
   requirements:
     _access: 'TRUE'
