@@ -19,6 +19,13 @@ use Drupal\wso2_auth\Service\OperatorPrivilegesService;
 class WSO2AuthController extends ControllerBase {
 
   /**
+   * {@inheritdoc}
+   */
+  public function getCacheMaxAge() {
+    return 0;
+  }
+
+  /**
    * The WSO2 authentication service.
    *
    * @var \Drupal\wso2_auth\WSO2AuthService
@@ -108,13 +115,19 @@ class WSO2AuthController extends ControllerBase {
     // Check if WSO2 authentication is configured.
     if (!$this->wso2Auth->isConfigured()) {
       $this->messenger()->addError($this->t('WSO2 authentication is not properly configured.'));
-      return new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response->setPrivate();
+      $response->headers->addCacheControlDirective('no-store');
+      return $response;
     }
 
     // For operator authentication, check if it's enabled
     if ($type === 'operator' && !$this->config('wso2_auth.settings')->get('operator.enabled')) {
       $this->messenger()->addError($this->t('Operator authentication is not enabled.'));
-      return new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response->setPrivate();
+      $response->headers->addCacheControlDirective('no-store');
+      return $response;
     }
 
     // Get the destination from the request if available.
@@ -145,7 +158,10 @@ class WSO2AuthController extends ControllerBase {
     try {
       if ($this->debug) {
         $this->getLogger('wso2_auth')->debug('Using TrustedRedirectResponse for WSO2 redirect');
-        return new TrustedRedirectResponse($url);
+        $response = new TrustedRedirectResponse($url);
+        $response->setPrivate();
+        $response->headers->addCacheControlDirective('no-store');
+        return $response;
       }
     }
     catch (\Exception $e) {
@@ -154,7 +170,10 @@ class WSO2AuthController extends ControllerBase {
         ]);
         // As a fallback, attempt to use standard RedirectResponse
         $this->getLogger('wso2_auth')->debug('Falling back to standard RedirectResponse');
-        return new RedirectResponse($url);
+        $response = new RedirectResponse($url);
+        $response->setPrivate();
+        $response->headers->addCacheControlDirective('no-store');
+        return $response;
     }
   }
 
@@ -201,17 +220,28 @@ class WSO2AuthController extends ControllerBase {
 
     // Prendi la sessione
     $session = $request->getSession();
+    if ($this->debug) {
+      $this->getLogger('wso2_auth')->notice('Recupero sessione: @code', [
+        '@code' => $session->get('wso2_auth_type', 'citizen'),
+      ]);
+    }
 
     // Controlla se il codice e lo state sono disponibili
     if (empty($code) || empty($state)) {
       $this->messenger()->addError($this->t('Risposta di autorizzazione non valida.'));
-      return new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response->setPrivate();
+      $response->headers->addCacheControlDirective('no-store');
+      return $response;
     }
 
     // Verifica il parametro state
     if (!$this->wso2Auth->verifyState($state)) {
       $this->messenger()->addError($this->t('Parametro state non valido.'));
-      return new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response->setPrivate();
+      $response->headers->addCacheControlDirective('no-store');
+      return $response;
     }
 
     // Prendi il tipo di autenticazione dalla sessione
@@ -221,14 +251,20 @@ class WSO2AuthController extends ControllerBase {
     $tokens = $this->wso2Auth->getTokens($code);
     if (!$tokens) {
       $this->messenger()->addError($this->t('Impossibile ottenere il token di accesso.'));
-      return new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response->setPrivate();
+      $response->headers->addCacheControlDirective('no-store');
+      return $response;
     }
 
     // Ottieni le informazioni dell'utente
     $user_info = $this->wso2Auth->getUserInfo($tokens['access_token']);
     if (!$user_info) {
       $this->messenger()->addError($this->t('Impossibile ottenere le informazioni utente.'));
-      return new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response->setPrivate();
+      $response->headers->addCacheControlDirective('no-store');
+      return $response;
     }
 
     // Ottieni la destinazione dalla sessione
@@ -244,7 +280,10 @@ class WSO2AuthController extends ControllerBase {
 
     if (!$account) {
       $this->messenger()->addError($this->t('Autenticazione fallita.'));
-      return new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response->setPrivate();
+      $response->headers->addCacheControlDirective('no-store');
+      return $response;
     }
 
     $session->set('wso2_auth_state', $state);
@@ -264,10 +303,16 @@ class WSO2AuthController extends ControllerBase {
     if (!empty($destination)) {
       // Dopo aver autenticato l'utente
       $destination = Url::fromUserInput($destination)->setAbsolute()->toString();
-      return new RedirectResponse($destination);
+      $response = new RedirectResponse($destination);
+      $response->setPrivate();
+      $response->headers->addCacheControlDirective('no-store');
+      return $response;
     }
 
-    return new RedirectResponse(Url::fromRoute('<front>')->toString());
+    $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
+    $response->setPrivate();
+    $response->headers->addCacheControlDirective('no-store');
+    return $response;
   }
 
   /**
@@ -432,7 +477,10 @@ class WSO2AuthController extends ControllerBase {
     // Se non c'è una sessione WSO2, fai solo il logout da Drupal
     if (empty($wso2_session) || empty($wso2_session['id_token'])) {
       $this->userLogout();
-      return new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response->setPrivate();
+      $response->headers->addCacheControlDirective('no-store');
+      return $response;
     }
 
     // Ottieni il token ID
@@ -462,7 +510,10 @@ class WSO2AuthController extends ControllerBase {
     $this->userLogout();
 
     // Reindirizza all'URL di logout WSO2
-    return new TrustedRedirectResponse($logout_url);
+    $response = new TrustedRedirectResponse($logout_url);
+    $response->setPrivate();
+    $response->headers->addCacheControlDirective('no-store');
+    return $response;
   }
 
   /**

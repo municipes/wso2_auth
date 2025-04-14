@@ -18,6 +18,13 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 class WSO2AuthController extends ControllerBase {
 
   /**
+   * {@inheritdoc}
+   */
+  public function getCacheMaxAge() {
+    return 0;
+  }
+
+  /**
    * The current user.
    *
    * @var \Drupal\Core\Session\AccountInterface
@@ -61,7 +68,10 @@ class WSO2AuthController extends ControllerBase {
 
     // L'utente è già autenticato, non fare nulla.
     if (!$this->currentUser->isAnonymous()) {
-      return new JsonResponse(['success' => TRUE, 'message' => 'Already authenticated']);
+      $response = new JsonResponse(['success' => TRUE, 'message' => 'Already authenticated']);
+      $response->setPrivate();
+      $response->headers->addCacheControlDirective('no-store');
+      return $response;
     }
 
     if ($request->isMethod('POST') || $request->query->has('id_token')) {
@@ -83,7 +93,10 @@ class WSO2AuthController extends ControllerBase {
       }
 
       if (empty($data['id_token'])) {
-        return new JsonResponse(['success' => FALSE, 'message' => 'No ID token provided'], 400);
+        $response = new JsonResponse(['success' => FALSE, 'message' => 'No ID token provided'], 400);
+        $response->setPrivate();
+        $response->headers->addCacheControlDirective('no-store');
+        return $response;
       }
 
       // Invece di gestire il login qui, reindirizza al modulo esistente
@@ -91,14 +104,20 @@ class WSO2AuthController extends ControllerBase {
 
       // Se è una chiamata AJAX, rispondi con JSON
       if ($request->isXmlHttpRequest()) {
-        return new JsonResponse([
+        $response = new JsonResponse([
           'success' => TRUE,
           'redirect' => $loginPath
         ]);
+        $response->setPrivate();
+        $response->headers->addCacheControlDirective('no-store');
+        return $response;
       }
 
       // Altrimenti, reindirizza direttamente
-      return new RedirectResponse($loginPath);
+      $response = new RedirectResponse($loginPath);
+      $response->setPrivate();
+      $response->headers->addCacheControlDirective('no-store');
+      return $response;
     }
 
     // Gestione delle chiamate GET con parametri di errore o token nell'URL.
@@ -108,7 +127,10 @@ class WSO2AuthController extends ControllerBase {
 
       if ($error === 'login_required') {
         // L'utente non è autenticato nell'IdP, non fare nulla.
-        return new Response('Authentication required', 200);
+        $response = new Response('Authentication required', 200);
+        $response->setPrivate();
+        $response->headers->addCacheControlDirective('no-store');
+        return $response;
       }
 
       if ($id_token) {
@@ -152,11 +174,17 @@ class WSO2AuthController extends ControllerBase {
           </html>
         ';
 
-        return new Response($content, 200, ['Content-Type' => 'text/html']);
+        $response = new Response($content, 200, ['Content-Type' => 'text/html']);
+        $response->setPrivate();
+        $response->headers->addCacheControlDirective('no-store');
+        return $response;
       }
     }
 
     // Risposta predefinita.
-    return new Response('Invalid request', 400);
+    $response = new Response('Invalid request', 400);
+    $response->setPrivate();
+    $response->headers->addCacheControlDirective('no-store');
+    return $response;
   }
 }

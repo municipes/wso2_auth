@@ -361,6 +361,9 @@ class WSO2AuthService {
 
     // Get the redirect URI - use the destination stored in session if available
     $destination = $this->session->get('wso2_auth_destination');
+    $this->logger->debug('WSO2 Auth: destination: @uri', [
+      '@uri' => $destination,
+    ]);
     $redirect_uri = $this->getRedirectUri($destination);
 
     $this->logger->debug('WSO2 Auth: Using redirect URI for token request: @uri', [
@@ -623,18 +626,18 @@ class WSO2AuthService {
       // Check if the username already exists and modify it if necessary
       $user_matches = $this->entityTypeManager->getStorage('user')
         ->loadByProperties(['name' => $user_info['name']]);
-        
+
       if (!empty($user_matches)) {
         $base_name = $user_info['name'];
         $i = 1;
-        
+
         do {
           $temp_name = $base_name . '_' . $i;
           $user_matches = $this->entityTypeManager->getStorage('user')
             ->loadByProperties(['name' => $temp_name]);
           $i++;
         } while (!empty($user_matches));
-        
+
         $user_info['name'] = $base_name . '_' . ($i - 1);
         $this->logger->notice('WSO2 Auth: Username @base already exists, using @new instead', [
           '@base' => $base_name,
