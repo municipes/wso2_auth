@@ -5,6 +5,7 @@ namespace Drupal\wso2_auth\Controller;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Routing\TrustedRedirectResponse;
+use Drupal\Core\State\StateInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -54,6 +55,13 @@ class WSO2AuthController extends ControllerBase {
   protected $configFactory;
 
   /**
+   * The state service.
+   *
+   * @var \Drupal\Core\State\StateInterface
+   */
+  protected $state;
+
+  /**
    * Whether debug mode is enabled.
    *
    * @var bool
@@ -71,17 +79,21 @@ class WSO2AuthController extends ControllerBase {
    *   The operator privileges service.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   The config factory service.
+   * @param \Drupal\Core\State\StateInterface $state
+   *   The state service.
    */
   public function __construct(
     WSO2AuthService $wso2_auth,
     RequestStack $request_stack,
     OperatorPrivilegesService $privileges_service,
-    ConfigFactoryInterface $config_factory
+    ConfigFactoryInterface $config_factory,
+    StateInterface $state
   ) {
     $this->wso2Auth = $wso2_auth;
     $this->requestStack = $request_stack;
     $this->privilegesService = $privileges_service;
     $this->configFactory = $config_factory;
+    $this->state = $state;
 
     // Inizializza la variabile debug una sola volta
     $this->debug = $this->configFactory->get('wso2_auth.settings')->get('debug');
@@ -95,7 +107,8 @@ class WSO2AuthController extends ControllerBase {
       $container->get('wso2_auth.authentication'),
       $container->get('request_stack'),
       $container->get('wso2_auth.operator_privileges'),
-      $container->get('config.factory')
+      $container->get('config.factory'),
+      $container->get('state')
     );
   }
 
@@ -111,22 +124,22 @@ class WSO2AuthController extends ControllerBase {
   public function authorize($type = 'citizen'): RedirectResponse {
     // Get the current request.
     $request = $this->requestStack->getCurrentRequest();
-    
+
     // Assicurati che esista una sessione PHP
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-      session_start();
-    }
-    
+    // if (session_status() !== PHP_SESSION_ACTIVE) {
+    //   session_start();
+    // }
+
     // Log dell'ID sessione per debug
-    if ($this->debug) {
-      $this->getLogger('wso2_auth')->debug('Authorize method called with session ID: @sid', [
-        '@sid' => session_id(),
-      ]);
-    }
+    // if ($this->debug) {
+    //   $this->getLogger('wso2_auth')->debug('Authorize method called with session ID: @sid', [
+    //     '@sid' => session_id(),
+    //   ]);
+    // }
 
     // Check if WSO2 authentication is configured.
     if (!$this->wso2Auth->isConfigured()) {
-      $this->messenger()->addError($this->t('WSO2 authentication is not properly configured.'));
+      $this->messenger()->addError($this->t('Authorize: WSO2 authentication is not properly configured.'));
       $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
       $response->setPrivate();
       $response->headers->addCacheControlDirective('no-store');
@@ -135,7 +148,7 @@ class WSO2AuthController extends ControllerBase {
 
     // For operator authentication, check if it's enabled
     if ($type === 'operator' && !$this->config('wso2_auth.settings')->get('operator.enabled')) {
-      $this->messenger()->addError($this->t('Operator authentication is not enabled.'));
+      $this->messenger()->addError($this->t('Authorize: Operator authentication is not enabled.'));
       $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
       $response->setPrivate();
       $response->headers->addCacheControlDirective('no-store');
@@ -145,22 +158,36 @@ class WSO2AuthController extends ControllerBase {
     // Get the destination from the request if available.
     $destination = $request->query->get('destinazione');
 
+    // Se non c'è una destinazione, usa la proprietà referer come fallback
+    if (empty($destination)) {
+      $referer = $request->headers->get('referer');
+      
+      // Evita che l'URL di login sia usato come destinazione
+      if (!empty($referer) && 
+          strpos($referer, 'wso2-auth/authorize') === FALSE && 
+          strpos($referer, 'user/login') === FALSE &&
+          strpos($referer, 'user/logout') === FALSE) {
+        $destination = $referer;
+      }
+    }
+
     // Log the destination parameter for debugging
-    if ($destination && $this->debug) {
-      $this->getLogger('wso2_auth')->debug('Destination parameter found in request: @destination', [
-        '@destination' => $destination,
+    if ($this->debug) {
+      $this->getLogger('wso2_auth')->debug('Authorize: Destination param: @destination (from query: @from_query, referer: @referer)', [
+        '@destination' => $destination ?: 'null',
+        '@from_query' => $request->query->get('destinazione') ?: 'null',
+        '@referer' => $request->headers->get('referer') ?: 'null',
       ]);
     }
 
-    // Generate the authorization URL.
+    // Generate the authorization URL (chiamata una sola volta).
     $url = $this->wso2Auth->getAuthorizationUrl($destination, $type);
     // Aggiungi un timestamp o un numero casuale all'URL per evitare la cache
-    $url = $this->wso2Auth->getAuthorizationUrl($destination, $type);
     $url .= (strpos($url, '?') !== false ? '&' : '?') . 'nocache=' . time();
 
     // Log the final URL we're redirecting to
     if ($this->debug) {
-      $this->getLogger('wso2_auth')->debug('Redirecting to WSO2 authorization URL: @url', [
+      $this->getLogger('wso2_auth')->debug('Authorize: Redirecting to WSO2 authorization URL: @url', [
         '@url' => $url,
       ]);
     }
@@ -169,19 +196,20 @@ class WSO2AuthController extends ControllerBase {
     // in case there's an issue with TrustedRedirectResponse
     try {
       if ($this->debug) {
-        $this->getLogger('wso2_auth')->debug('Using TrustedRedirectResponse for WSO2 redirect');
-        $response = new TrustedRedirectResponse($url);
-        $response->setPrivate();
-        $response->headers->addCacheControlDirective('no-store');
-        return $response;
+        $this->getLogger('wso2_auth')->debug('Authorize: Using TrustedRedirectResponse for WSO2 redirect');
       }
+      $response = new TrustedRedirectResponse($url);
+      $response->setPrivate();
+      $response->headers->addCacheControlDirective('no-store');
+      $response->setMaxAge(0); // Disabilita cache browser
+      return $response;
     }
     catch (\Exception $e) {
-        $this->getLogger('wso2_auth')->error('Error with TrustedRedirectResponse: @error', [
+        $this->getLogger('wso2_auth')->error('Authorize: Error with TrustedRedirectResponse: @error', [
             '@error' => $e->getMessage(),
         ]);
         // As a fallback, attempt to use standard RedirectResponse
-        $this->getLogger('wso2_auth')->debug('Falling back to standard RedirectResponse');
+        $this->getLogger('wso2_auth')->debug('Authorize: Falling back to standard RedirectResponse');
         $response = new RedirectResponse($url);
         $response->setPrivate();
         $response->headers->addCacheControlDirective('no-store');
@@ -197,22 +225,15 @@ class WSO2AuthController extends ControllerBase {
    */
   public function callback(): RedirectResponse {
     // Assicurati che esista una sessione PHP
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-      session_start();
-    }
-    
+    // if (session_status() !== PHP_SESSION_ACTIVE) {
+    //   session_start();
+    // }
+
     $request = $this->requestStack->getCurrentRequest();
     $code = $request->query->get('code');
     $error = $request->query->get('error');
     $state = $request->query->get('state');
 
-    // Log dell'ID sessione per debug
-    if ($this->debug) {
-      $this->getLogger('wso2_auth')->debug('Callback method called with session ID: @sid', [
-        '@sid' => session_id(),
-      ]);
-    }
-    
     /** debug, scommentare per visualizizare risposta e terminare il processo */
     // return [
     //   '#markup' => '<script>
@@ -232,7 +253,7 @@ class WSO2AuthController extends ControllerBase {
     $state = $request->query->get('state');
     $session_state = $request->query->get('session_state');
     if ($this->debug) {
-      $this->getLogger('wso2_auth')->notice('Received code. Code: @code, State: @state, SessionState: @session_state', [
+      $this->getLogger('wso2_auth')->notice('Callback: Received code. Code: @code, State: @state, SessionState: @session_state', [
         '@code' => $code,
         '@state' => $state,
         '@session_state' => $session_state,
@@ -242,15 +263,18 @@ class WSO2AuthController extends ControllerBase {
     // Prendi la sessione
     $session = $request->getSession();
     if ($this->debug) {
-      $this->getLogger('wso2_auth')->notice('Recupero sessione: tipo=@tipo, stato=@stato', [
-        '@tipo' => $session->get('wso2_auth_type', 'citizen'),
-        '@stato' => $session->get('wso2_auth_state') ?: 'null',
+      $state_key = $this->wso2Auth->getStateKey('state');
+      $stored_state = $this->state->get($state_key);
+      
+      $this->getLogger('wso2_auth')->notice('Callback: Verifica stato: state_key=@key, stato=@stato', [
+        '@key' => $state_key,
+        '@stato' => $stored_state ?: 'null',
       ]);
     }
 
     // Controlla se il codice e lo state sono disponibili
     if (empty($code) || empty($state)) {
-      $this->messenger()->addError($this->t('Risposta di autorizzazione non valida.'));
+      $this->messenger()->addError($this->t('Callback: Risposta di autorizzazione non valida.'));
       $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
       $response->setPrivate();
       $response->headers->addCacheControlDirective('no-store');
@@ -259,51 +283,62 @@ class WSO2AuthController extends ControllerBase {
 
     // Verifica il parametro state
     if (!$this->wso2Auth->verifyState($state)) {
-      $this->messenger()->addError($this->t('Parametro state non valido.'));
+      $this->messenger()->addError($this->t('Callback: Parametro state non valido.'));
       if ($this->debug) {
-        $stored_state = $request->getSession()->get('wso2_auth_state');
-        $this->getLogger('wso2_auth')->notice('Parametro state non valido: ricevuto @state, in sessione @stored_state', [
+        $stored_state_session = $request->getSession()->get('wso2_auth_state');
+        $stored_state_temp = $this->wso2Auth->getTempStorageValue('wso2_auth_state');
+        $this->getLogger('wso2_auth')->notice('Callback: Parametro state non valido: ricevuto @state, in temp/sessione @stored_temp/@stored_sess', [
           '@state' => $state,
-          '@stored_state' => $stored_state ?: 'null',
+          '@stored_temp' => $stored_state_temp ?: 'null',
+          '@stored_sess' => $stored_state_session ?: 'null',
         ]);
       }
       $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
       $response->setPrivate();
       $response->headers->addCacheControlDirective('no-store');
+      $response->setMaxAge(0); // Disabilita cache browser
       return $response;
     }
 
-    // Prendi il tipo di autenticazione dalla sessione
-    $authType = $session->get('wso2_auth_type', 'citizen');
+    // Prendi il tipo di autenticazione dallo State API
+    $authType = $this->state->get('wso2_auth.auth_type') ?: 'citizen';
     if ($this->debug) {
-      $this->getLogger('wso2_auth')->notice('2^ Recupero sessione: @code', [
-        '@code' => $session->get('wso2_auth_type', 'citizen'),
+      $this->getLogger('wso2_auth')->notice('Callback: Tipo di autenticazione da State API: @auth_type', [
+        '@auth_type' => $authType,
       ]);
     }
 
     // Scambia il codice di autorizzazione per i token
     $tokens = $this->wso2Auth->getTokens($code);
     if (!$tokens) {
-      $this->messenger()->addError($this->t('Impossibile ottenere il token di accesso.'));
+      $this->messenger()->addError($this->t('Callback: Impossibile ottenere il token di accesso.'));
       $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
       $response->setPrivate();
       $response->headers->addCacheControlDirective('no-store');
+      $response->setMaxAge(0); // Disabilita cache browser
       return $response;
     }
 
     // Ottieni le informazioni dell'utente
     $user_info = $this->wso2Auth->getUserInfo($tokens['access_token']);
     if (!$user_info) {
-      $this->messenger()->addError($this->t('Impossibile ottenere le informazioni utente.'));
+      $this->messenger()->addError($this->t('Callback: Impossibile ottenere le informazioni utente.'));
       $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
       $response->setPrivate();
       $response->headers->addCacheControlDirective('no-store');
+      $response->setMaxAge(0); // Disabilita cache browser
       return $response;
     }
 
-    // Ottieni la destinazione dalla sessione
-    $destination = $session->get('wso2_auth_destination');
-    $session->remove('wso2_auth_destination');
+    // Ottieni la destinazione dallo State API
+    $destination = $this->state->get('wso2_auth.destination');
+    
+    $this->getLogger('wso2_auth')->notice('Callback: Destinazione recuperata da State API: @dest', [
+      '@dest' => $destination ?: 'null',
+    ]);
+    
+    // Rimuovi dalla State API dopo l'uso
+    $this->state->delete('wso2_auth.destination');
 
     // Gestisci l'autenticazione in base al tipo
     if ($authType === 'operator') {
@@ -313,14 +348,17 @@ class WSO2AuthController extends ControllerBase {
     }
 
     if (!$account) {
-      $this->messenger()->addError($this->t('Autenticazione fallita.'));
+      $this->messenger()->addError($this->t('Callback: Autenticazione fallita.'));
       $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
       $response->setPrivate();
       $response->headers->addCacheControlDirective('no-store');
+      $response->setMaxAge(0); // Disabilita cache browser
       return $response;
     }
 
-    $session->set('wso2_auth_state', $state);
+    // Salva lo stato nello State API di Drupal
+    $state_key = $this->wso2Auth->getStateKey('state');
+    $this->state->set($state_key, $state);
 
     // Store token information in the session.
     $session->set('wso2_auth_session', [
@@ -331,8 +369,8 @@ class WSO2AuthController extends ControllerBase {
     ]);
 
     // Reindirizza alla destinazione o alla pagina principale
-    $this->getLogger('wso2_auth')->notice('Redirect con destination: @type', [
-      '@type' => $destination,
+    $this->getLogger('wso2_auth')->notice('Callback: Redirect finale con destination: @type', [
+      '@type' => $destination ?: 'homepage',
     ]);
     if (!empty($destination)) {
       // Dopo aver autenticato l'utente
@@ -340,12 +378,14 @@ class WSO2AuthController extends ControllerBase {
       $response = new RedirectResponse($destination);
       $response->setPrivate();
       $response->headers->addCacheControlDirective('no-store');
+      $response->setMaxAge(0); // Disabilita cache browser
       return $response;
     }
 
     $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
     $response->setPrivate();
     $response->headers->addCacheControlDirective('no-store');
+    $response->setMaxAge(0); // Disabilita cache browser
     return $response;
   }
 

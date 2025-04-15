@@ -115,6 +115,26 @@ class WSO2AuthService {
   protected $debug;
 
   /**
+   * Genera una chiave univoca per lo state API basata sulla sessione corrente.
+   *
+   * @param string $key
+   *   La chiave base da usare.
+   * @return string
+   *   La chiave completa per lo State API.
+   */
+  public function getStateKey($key) {
+    $session_id = session_id();
+    if (!empty($session_id)) {
+      // Includi parte dell'ID sessione per garantire unicità tra utenti
+      // ma mantieni lo stesso valore tra richieste dello stesso utente
+      $session_part = substr(md5($session_id), 0, 8);
+      return 'wso2_auth.' . $key . '.' . $session_part;
+    }
+    
+    return 'wso2_auth.' . $key;
+  }
+
+  /**
    * Constructor for the WSO2 authentication service.
    *
    * @param \GuzzleHttp\ClientInterface $http_client
@@ -209,16 +229,17 @@ class WSO2AuthService {
     // Genera un token casuale
     $state = bin2hex(random_bytes(16));
 
-    // Memorizzalo nella sessione
-    $this->session->set('wso2_auth_state', $state);
-    // Forza il salvataggio della sessione immediatamente
-    $this->session->save();
+    // Genera una chiave unica per questo utente
+    $state_key = $this->getStateKey('state');
+    
+    // Memorizza nello State API di Drupal
+    $this->state->set($state_key, $state);
 
     if ($this->debug) {
-      $this->logger->debug('WSO2 Auth ::generateState: State: @state, Check: @check, Session ID: @sid', [
+      $this->logger->debug('WSO2 Auth ::generateState: State: @state, StateKey: @key, Stored: @stored', [
         '@state' => $state,
-        '@check' => $this->session->get('wso2_auth_state'),
-        '@sid' => session_id(),
+        '@key' => $state_key,
+        '@stored' => $this->state->get($state_key) ?: 'null',
       ]);
     }
     return $state;
@@ -234,43 +255,45 @@ class WSO2AuthService {
    *   TRUE if the state is valid.
    */
   public function verifyState($returned_state): bool {
-    // Recupera il token memorizzato in sessione
-    $stored_state = $this->session->get('wso2_auth_state');
+    // Recupera la chiave unica per questo utente
+    $state_key = $this->getStateKey('state');
+    
+    // Recupera lo stato memorizzato nello State API
+    $stored_state = $this->state->get($state_key);
 
     if ($this->debug) {
-      $this->logger->debug('WSO2 Auth ::verifyState: Stored state: @stored, Returned state: @returned, Session ID: @sid', [
+      $this->logger->debug('WSO2 Auth ::verifyState: StateKey: @key, Stored state: @stored, Returned state: @returned', [
+        '@key' => $state_key,
         '@stored' => $stored_state ?: 'null',
         '@returned' => $returned_state,
-        '@sid' => session_id(),
       ]);
     }
 
-    // Verifica 1: Il token esisteva nella sessione?
+    // Verifica 1: Il token esisteva nello state API?
     if (empty($stored_state)) {
-      $this->logger->error('WSO2 Auth: Stato mancante nella sessione durante verifica. Session ID: @sid', [
-        '@sid' => session_id(),
+      $this->logger->error('WSO2 Auth: Stato mancante nello State API durante verifica. Key: @key', [
+        '@key' => $state_key,
       ]);
-      
+
       // Per risolvere il problema, accettiamo comunque lo stato
       // se siamo in debug mode, altrimenti continuerebbe a fallire
       if ($this->debug) {
-        $this->logger->notice('WSO2 Auth: In debug mode, accettiamo lo stato anche se non trovato in sessione');
-        // Memorizza lo stato corrente per future verifiche
-        $this->session->set('wso2_auth_state', $returned_state);
-        $this->session->save();
+        $this->logger->notice('WSO2 Auth: In debug mode, accettiamo lo stato anche se non trovato');
+
+        // Memorizza lo stato corrente nello state API per future verifiche
+        $this->state->set($state_key, $returned_state);
         return TRUE;
       }
-      
+
       return FALSE;
     }
 
     // Verifica 2: Confronto sicuro contro attacchi timing
     $result = hash_equals($stored_state, (string) $returned_state);
-    
-    // NON rimuoviamo lo stato dalla sessione qui, poiché potrebbe essere necessario 
+
+    // NON rimuoviamo lo stato dallo State API qui, poiché potrebbe essere necessario 
     // per altri controlli successivi durante il flusso di autenticazione
-    // Lo stato viene mantenuto e riutilizzato in tutto il processo di auth
-    
+
     return $result;
   }
 
@@ -309,19 +332,20 @@ class WSO2AuthService {
   public function getAuthorizationUrl($destination = '', $type = 'citizen') {
     $config = $this->configFactory->get('wso2_auth.settings');
 
-    // Memorizza la destinazione nella sessione per reindirizzarci dopo il login
+    // Memorizza la destinazione nello State API per reindirizzarci dopo il login
     if (!empty($destination)) {
-      $this->session->set('wso2_auth_destination', $destination);
+      // Memorizza nello State API
+      $this->state->set('wso2_auth.destination', $destination);
 
       if ($config->get('debug')) {
-        $this->logger->debug('WSO2 Auth: Memorizzata destinazione in sessione: @destination', [
+        $this->logger->debug('WSO2 Auth: Memorizzata destinazione nello State API: @destination', [
           '@destination' => $destination,
         ]);
       }
     }
 
-    // Memorizza il tipo di autenticazione nella sessione
-    $this->session->set('wso2_auth_type', $type);
+    // Memorizza il tipo di autenticazione nello state API
+    $this->state->set('wso2_auth.auth_type', $type);
 
     // Genera il parametro state
     $state = $this->generateState();
@@ -390,13 +414,14 @@ class WSO2AuthService {
     ]);
     $config = $this->configFactory->get('wso2_auth.settings');
 
-    // Get the auth type from session
-    $auth_type = $this->session->get('wso2_auth_type', 'citizen');
+    // Get the auth type from state API
+    $auth_type = $this->state->get('wso2_auth.auth_type') ?: 'citizen';
 
-    // Get the redirect URI - use the destination stored in session if available
-    $destination = $this->session->get('wso2_auth_destination');
-    $this->logger->debug('WSO2 Auth: destination: @uri', [
-      '@uri' => $destination,
+    // Get the redirect URI - use the destination stored in state API
+    $destination = $this->state->get('wso2_auth.destination');
+
+    $this->logger->debug('WSO2 Auth: destination da state: @uri', [
+      '@uri' => $destination ?: 'null',
     ]);
     $redirect_uri = $this->getRedirectUri($destination);
 
@@ -849,8 +874,9 @@ class WSO2AuthService {
   public function getLogoutUrl($id_token, $destination = '') {
     $config = $this->configFactory->get('wso2_auth.settings');
 
-    // Get the state parameter.
-    $state = $this->session->get('wso2_auth_state');
+    // Get the state parameter from State API.
+    $state_key = $this->getStateKey('state');
+    $state = $this->state->get($state_key);
 
     // Use the site base URL if no destination is provided.
     $redirect_uri = !empty($destination)

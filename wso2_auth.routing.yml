@@ -41,6 +41,8 @@ wso2_auth.authorize:
   requirements:
     _access: 'TRUE'
     type: '^(citizen|operator)$'
+  options:
+    no_cache: TRUE
 
 wso2_auth.callback:
   path: '/wso2-auth/callback'
@@ -49,6 +51,8 @@ wso2_auth.callback:
     _title: 'WSO2 Authentication Callback'
   requirements:
     _access: 'TRUE'
+  options:
+    no_cache: TRUE
 
 wso2_auth.logout:
   path: '/wso2-auth/logout'
@@ -57,3 +61,5 @@ wso2_auth.logout:
     _title: 'Logout from WSO2'
   requirements:
     _user_is_logged_in: 'TRUE'
+  options:
+    no_cache: TRUE

@@ -71,8 +71,7 @@
 
           // Costruisci l'URL di redirect con la destination dinamica e un parametro nocache
           const redirectUrl = (idpConfig.loginPath || '/wso2-auth/authorize/citizen') +
-                              (currentPath ? '?destinazione=' + encodeURIComponent(currentPath) : '?nc=' + Date.now()) +
-                              (currentPath ? '&nc=' + Date.now() : '');
+                              (currentPath ? '?destinazione=' + encodeURIComponent(currentPath) : '?nc=' + Date.now());
 
           debugLog('Reindirizzamento a', redirectUrl);
 
@@ -147,7 +146,7 @@
 
             // Se l'URL contiene id_token, l'utente è autenticato
             if (iframeLocation.includes('id_token=')) {
-              debugLog('Token trovato nell\'URL dell\'iframe');
+              debugLog('Parametro idToken trovato nell\'URL dell\'iframe');
 
               // Estrai il token dall'URL
               const urlParams = new URLSearchParams(iframeLocation.split('#')[1]);
