@@ -71,7 +71,7 @@ class WSO2AuthCheckSettingsForm extends ConfigFormBase {
       '#default_value' => $config->get('check_interval') ?? 0.5,
       '#min' => 0,
       '#max' => 60,
-      '#step' => 0.5,
+      '#step' => 0.1,
       '#required' => TRUE,
     ];
 
