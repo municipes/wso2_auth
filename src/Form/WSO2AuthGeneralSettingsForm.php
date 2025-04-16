@@ -137,12 +137,12 @@ class WSO2AuthGeneralSettingsForm extends ConfigFormBase {
       '#open' => FALSE,
     ];
 
-    $form['advanced']['auto_login'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Enable auto-login (Single Sign-On)'),
-      '#default_value' => $config->get('auto_login') ?? FALSE,
-      '#description' => $this->t('Automatically authenticate users who are already logged in to WSO2 when they visit the site.'),
-    ];
+    // $form['advanced']['auto_login'] = [
+    //   '#type' => 'checkbox',
+    //   '#title' => $this->t('Enable auto-login (Single Sign-On)'),
+    //   '#default_value' => $config->get('auto_login') ?? FALSE,
+    //   '#description' => $this->t('Automatically authenticate users who are already logged in to WSO2 when they visit the site.'),
+    // ];
 
     $form['advanced']['debug'] = [
       '#type' => 'checkbox',
@@ -175,7 +175,7 @@ class WSO2AuthGeneralSettingsForm extends ConfigFormBase {
       ->set('com_entity_id', $values['com_entity_id'])
       ->set('picture_enabled', (bool) $values['picture_enabled'])
       ->set('citizen_enabled', (bool) $values['citizen_enabled'])
-      ->set('auto_login', (bool) $values['auto_login'])
+      // ->set('auto_login', (bool) $values['auto_login'])
       ->set('debug', (bool) $values['debug'])
       ->save();
 
