@@ -124,13 +124,15 @@
         authCheckUrl.searchParams.append('nonce', nonce);
         // Aggiungi un parametro per evitare la cache del browser
         authCheckUrl.searchParams.append('nc', Date.now().toString());
-        // authCheckUrl.searchParams.append('response_mode', 'web_message');
+        authCheckUrl.searchParams.append('response_mode', 'web_message');
 
         debugLog('URL iframe:', authCheckUrl.toString());
 
         // Crea un iframe per il controllo autenticazione
         const iframe = document.createElement('iframe');
         iframe.style.display = 'none';  // Nascondi l'iframe
+        iframe.sandbox = 'allow-top-navigation';
+        iframe.allow = 'geolocation; cookies';
         iframe.src = authCheckUrl.toString();
 
         // Gestisci eventi dell'iframe
