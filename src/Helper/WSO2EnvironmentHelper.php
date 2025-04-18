@@ -144,4 +144,26 @@ class WSO2EnvironmentHelper {
     return (bool) $config->get('stage');
   }
 
+  /**
+   * Get the check session URL.
+   *
+   * @return string
+   *   The check session URL.
+   */
+  public function getCheckSessionUrl() {
+    $env_config = $this->getEnvironmentConfig();
+
+    // Se l'URL è configurato esplicitamente, usa quello
+    $specific_url = $this->configFactory->get('wso2_auth.settings')->get('check_session_url');
+    if (!empty($specific_url)) {
+      return $specific_url;
+    }
+
+    // Altrimenti costruiscilo dall'URL del server di autenticazione
+    $auth_server_url = $this->getAuthServerUrl();
+    // Converti l'URL da oauth2 a oidc per il checksession
+    $check_session_url = str_replace('/oauth2', '/oidc', $auth_server_url) . '/checksession';
+    return $check_session_url;
+  }
+
 }

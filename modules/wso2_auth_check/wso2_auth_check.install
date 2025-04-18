@@ -16,6 +16,7 @@ function wso2_auth_check_install() {
     ->set('check_every_page', FALSE)
     ->set('check_interval', 300)
     ->set('excluded_paths', "/wso2-auth/*\n/user/*\n/admin/*")
+    ->set('check_session_method', 'iframe')
     ->save();
 
   // Log the installation.

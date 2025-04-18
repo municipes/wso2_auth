@@ -75,6 +75,17 @@ class WSO2AuthCheckSettingsForm extends ConfigFormBase {
       '#required' => TRUE,
     ];
 
+    $form['check_session_method'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Metodo di controllo sessione'),
+      '#options' => [
+        'iframe' => $this->t('Iframe tradizionale (prompt=none)'),
+        'checksession' => $this->t('OIDC Session Management (checksession)'),
+      ],
+      '#default_value' => $config->get('check_session_method') ?? 'iframe',
+      '#description' => $this->t('Scegli il metodo per verificare lo stato di autenticazione con WSO2.'),
+    ];
+
     $form['debug'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Abilita modalità debug'),
@@ -92,6 +103,7 @@ class WSO2AuthCheckSettingsForm extends ConfigFormBase {
     $this->config('wso2_auth_check.settings')
       ->set('enabled', $form_state->getValue('enabled'))
       ->set('check_interval', $form_state->getValue('check_interval'))
+      ->set('check_session_method', $form_state->getValue('check_session_method'))
       ->set('debug', $form_state->getValue('debug'))
       ->save();
 

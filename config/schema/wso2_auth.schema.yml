@@ -33,6 +33,9 @@ wso2_auth.settings:
     auth_server_url:
       type: string
       label: 'Authentication server URL'
+    check_session_url:
+      type: string
+      label: 'URL per il controllo della sessione'
 
     # Citizen Settings
     citizen:
