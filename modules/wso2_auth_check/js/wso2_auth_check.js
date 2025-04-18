@@ -105,6 +105,7 @@
           // Costruisci l'URL per l'iframe di controllo sessione
           const checkSessionUrl = new URL(idpConfig.checkSessionUrl);
           checkSessionUrl.searchParams.append('client_id', clientId);
+	        checkSessionUrl.searchParams.append('redirect_uri', idpConfig.redirectUri);
           // Aggiungi un parametro per evitare la cache del browser
           checkSessionUrl.searchParams.append('nc', Date.now().toString());
 
@@ -114,86 +115,124 @@
           const opFrame = document.createElement('iframe');
           opFrame.style.display = 'none';  // Nascondi l'iframe
           opFrame.src = checkSessionUrl.toString();
-          document.body.appendChild(opFrame);
 
           // Inizializza variabili per la gestione della sessione
-          let sessionState = null;
+          let sessionState = 'unknown'; // Inizializza con un valore di default
           let checkSessionInterval = null;
-          let lastMessageTime = 0;
-          const messageTimeout = 10000; // 10 secondi
+          let initialized = false;
+          let retryCount = 0;
+          const maxRetries = 2;
 
           // Funzione per verificare lo stato della sessione
           const checkSessionState = function() {
             if (opFrame.contentWindow) {
               try {
-                // Verifica se è passato troppo tempo dall'ultimo messaggio ricevuto
-                const currentTime = Date.now();
-                if (lastMessageTime > 0 && (currentTime - lastMessageTime > messageTimeout)) {
-                  debugLog('Timeout nella comunicazione con l\'iframe - resetto il frame');
-                  // Resetta l'iframe e ricrea la connessione
-                  document.body.removeChild(opFrame);
-                  setTimeout(function() {
-                    document.body.appendChild(opFrame);
-                  }, 1000);
+                if (!initialized && retryCount < maxRetries) {
+                  debugLog('Tentativo di inizializzazione #' + (retryCount + 1));
 
-                  lastMessageTime = 0;
-                  return;
-                }
+                  // Primo invio: tentativo di inizializzazione
+                  debugLog('Invio messaggio di inizializzazione RP frame');
+                  opFrame.contentWindow.postMessage('init', '*');
 
-                // Invia il messaggio per controllare lo stato
-                if (sessionState) {
+                  retryCount++;
+
+                  // Se dopo tentativi ancora non si è inizializzata, prova con un approccio più diretto
+                  if (retryCount === maxRetries) {
+                    debugLog('Tentativo diretto di comunicazione');
+                    // Tenta direttamente un controllo di sessione
+                    opFrame.contentWindow.postMessage(clientId + ' ' + sessionState, '*');
+                  }
+                } else if (initialized) {
+                  // Invia il messaggio per controllare lo stato
                   const message = clientId + ' ' + sessionState;
-                  debugLog('Invio messaggio all\'iframe checkSession:', message);
-                  opFrame.contentWindow.postMessage(message, new URL(idpConfig.checkSessionUrl).origin);
+                  debugLog('Invio messaggio di controllo sessione:', message);
+                  opFrame.contentWindow.postMessage(message, '*');
                 }
               } catch (e) {
                 debugLog('Errore durante il controllo della sessione:', e);
               }
+            } else {
+              debugLog('contentWindow non disponibile');
             }
           };
 
           // Gestisci i messaggi ricevuti dall'iframe
           const messageHandler = function(event) {
-            // Verifica che il messaggio provenga dall'origine corretta
-            const expectedOrigin = new URL(idpConfig.checkSessionUrl).origin;
-            if (event.origin !== expectedOrigin) {
-              return;
-            }
+            // Per il debugging, logga tutti i messaggi ricevuti
+            debugLog('Messaggio ricevuto (da ' + event.origin + '):', event.data);
 
-            lastMessageTime = Date.now();
+            // Non filtrare per origine all'inizio, per diagnostica
+            // if (event.origin !== new URL(idpConfig.checkSessionUrl).origin) {
+            //   debugLog('Origine messaggio non valida:', event.origin);
+            //   return;
+            // }
 
             const message = event.data;
-            debugLog('Messaggio ricevuto dall\'iframe checkSession:', message);
 
+            // Gestiamo diversi possibili formati di risposta
             if (message === 'unchanged') {
               debugLog('Stato sessione: invariato');
+              initialized = true;
             } else if (message === 'changed') {
               debugLog('Stato sessione: cambiato - l\'utente è autenticato su WSO2');
+              initialized = true;
               // L'utente è autenticato su WSO2, reindirizza al login
               redirectToLogin();
             } else if (message === 'error') {
               debugLog('Stato sessione: errore');
+              initialized = true;
               // Memorizza il fallimento per evitare check troppo frequenti
               localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
-            } else if (typeof message === 'string' && message.startsWith('init:')) {
-              // Memorizza lo stato iniziale della sessione
-              sessionState = message.substring(5);
-              debugLog('Stato sessione inizializzato:', sessionState);
+            } else if (typeof message === 'string') {
+              // Altri possibili formati
+              if (message.startsWith('init:')) {
+                sessionState = message.substring(5);
+                debugLog('Stato sessione inizializzato:', sessionState);
+                initialized = true;
+              } else if (message.includes('::')) {
+                // Altro possibile formato di inizializzazione
+                const parts = message.split('::');
+                if (parts.length > 1) {
+                  sessionState = parts[1];
+                  debugLog('Stato sessione inizializzato (formato alternativo):', sessionState);
+                  initialized = true;
+                }
+              } else if (message.includes(' ')) {
+                // Potrebbe essere un messaggio di risposta nel formato "clientId sessionState"
+                const parts = message.split(' ');
+                if (parts.length > 1 && parts[0] === clientId) {
+                  sessionState = parts[1];
+                  debugLog('Stato sessione aggiornato:', sessionState);
+                  initialized = true;
+                }
+              }
 
-              // Avvia il controllo periodico
-              if (checkSessionInterval === null) {
+              // Se siamo riusciti a inizializzare con un messaggio
+              if (initialized && !checkSessionInterval) {
+                debugLog('Avvio controllo periodico della sessione');
                 checkSessionInterval = setInterval(checkSessionState, 3000);
               }
             }
           };
 
-          // Aggiungi l'event listener per i messaggi
+          // Aggiungi l'event listener per i messaggi - usa "*" per diagnosi
           window.addEventListener('message', messageHandler);
 
           // Gestisci il caricamento dell'iframe
           opFrame.onload = function() {
             debugLog('Iframe checkSession caricato');
+
+            // Avvia la sequenza di inizializzazione
+            setTimeout(function() {
+              // Avvia il controllo periodico
+              if (!checkSessionInterval) {
+                checkSessionInterval = setInterval(checkSessionState, 3000);
+              }
+            }, 1000); // Piccolo delay per assicurarsi che l'iframe sia completamente caricato
           };
+
+          // Aggiungi l'iframe al DOM
+          document.body.appendChild(opFrame);
 
           // Cleanup quando la pagina viene abbandonata
           window.addEventListener('beforeunload', function() {
@@ -207,6 +246,7 @@
           // METODO TRADIZIONALE: prompt=none
           // ===============================
 
+          // [Codice esistente per il metodo prompt=none...]
           debugLog('Utilizzo del metodo iframe tradizionale con prompt=none');
 
           // Genera un nonce sicuro
@@ -291,6 +331,8 @@
               }
             } catch (e) {
               debugLog('Non posso accedere al contenuto dell\'iframe (normale per sicurezza cross-origin):', e);
+              // Memorizza il timestamp del controllo negativo dopo un errore
+              localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
             }
           };
 
@@ -302,7 +344,12 @@
               let data;
               // Gestisci sia stringhe JSON che oggetti diretti
               if (typeof event.data === 'string') {
-                data = JSON.parse(event.data);
+                try {
+                  data = JSON.parse(event.data);
+                } catch (e) {
+                  // Se non è JSON, usa il dato così com'è
+                  data = { message: event.data };
+                }
               } else {
                 data = event.data;
               }
@@ -354,6 +401,7 @@
 
           // Aggiungi l'iframe al DOM
           document.body.appendChild(iframe);
+
         } // Fine else (metodo tradizionale)
       });
     }
