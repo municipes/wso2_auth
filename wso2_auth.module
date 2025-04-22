@@ -78,7 +78,7 @@ function wso2_auth_form_user_login_form_alter(&$form, FormStateInterface $form_s
 
   // Get configuration
   $config = \Drupal::config('wso2_auth.settings');
-  
+
   // Aggiunge un callback personalizzato alla submission del form
   $form['#submit'][] = 'wso2_auth_user_login_form_submit';
 
@@ -89,7 +89,7 @@ function wso2_auth_form_user_login_form_alter(&$form, FormStateInterface $form_s
       'type' => 'citizen',
       'nc' => time(),
     ]);
-    
+
     $form['wso2_auth_citizen'] = [
       '#type' => 'link',
       '#title' => t('Login con SPID/CIE (Cittadino)'),
@@ -108,7 +108,7 @@ function wso2_auth_form_user_login_form_alter(&$form, FormStateInterface $form_s
       'type' => 'operator',
       'nc' => time(),
     ]);
-    
+
     $form['wso2_auth_operator'] = [
       '#type' => 'link',
       '#title' => t('Login come Operatore'),
@@ -137,27 +137,55 @@ function wso2_auth_form_user_login_form_alter(&$form, FormStateInterface $form_s
  * will be used instead.
  */
 function wso2_auth_user_logout($account) {
-  if (\Drupal::hasService('wso2_auth.hook_implementation')) {
-    return \Drupal::service('wso2_auth.hook_implementation')->userLogout($account);
-  }
-
-  // Get the WSO2 Auth service.
-  $wso2_auth = \Drupal::service('wso2_auth.authentication');
-
-  // Get the session.
+  // Ottieni la sessione.
   $session = \Drupal::request()->getSession();
 
   // Check if the user has a WSO2 session.
   $wso2_session = $session->get('wso2_auth_session');
+
+  \Drupal::logger('wso2_auth')->notice('User logout - UID: @uid', [
+    '@uid' => $account->id(),
+  ]);
+
   if (!empty($wso2_session) && !empty($wso2_session['id_token'])) {
-    // Store the id_token in the state service so it can be used after the user is logged out.
-    \Drupal::state()->set('wso2_auth_logout_token_' . $account->id(), $wso2_session['id_token']);
+    // Salva il token in state (come backup)
+    $token_key = 'wso2_auth_logout_token_' . $account->id();
+    \Drupal::state()->set($token_key, $wso2_session['id_token']);
+
+    // Ottieni l'environment helper
+    $environment_helper = \Drupal::service('wso2_auth.environment_helper');
+
+    // Ottieni l'URL di logout da WSO2EnvironmentHelper
+    $logout_url = $environment_helper->getLogoutUrl();
+
+    // Ottieni l'URL di base
+    $base_url = \Drupal::request()->getSchemeAndHttpHost();
+
+    // Costruisci i parametri di query
+    $query_params = [
+      'id_token_hint' => $wso2_session['id_token'],
+      'post_logout_redirect_uri' => $base_url,
+    ];
+
+    // Costruisci l'URL completo
+    $full_logout_url = $logout_url . '?' . http_build_query($query_params);
+
+    \Drupal::logger('wso2_auth')->notice('URL di logout WSO2 generato usando environment helper: @url', [
+      '@url' => $full_logout_url,
+    ]);
+
+    // Imposta l'header di location per il redirect dopo che termina lo script
+    $response = new \Drupal\Core\Routing\TrustedRedirectResponse($full_logout_url);
+    $response->send();
+
+    // Termina l'esecuzione
+    // exit();
+  } else {
+    \Drupal::logger('wso2_auth')->warning('Nessun token trovato nella sessione WSO2 durante logout');
   }
 
   // Clear the WSO2 session.
   $session->remove('wso2_auth_session');
-  // Manteniamo lo stato per garantire la coerenza tra le richieste
-  // $session->remove('wso2_auth_state');
 }
 
 /**
@@ -170,35 +198,3 @@ function wso2_auth_user_login_form_submit($form, FormStateInterface $form_state)
   // questo submit handler, dobbiamo definirlo
 }
 
-/**
- * Implements hook_user_logout_redirect_alter().
- *
- * This is a traditional hook implementation for backward compatibility.
- * In Drupal 11.1+, the attribute-based implementation in HookImplementation.php
- * will be used instead.
- */
-function wso2_auth_user_logout_redirect_alter(&$response) {
-  if (\Drupal::hasService('wso2_auth.hook_implementation')) {
-    return \Drupal::service('wso2_auth.hook_implementation')->userLogoutRedirectAlter($response);
-  }
-
-  // Get the current user before logout.
-  $account = \Drupal::currentUser();
-  $uid = $account->id();
-
-  // Check if we have an id_token for this user.
-  $id_token = \Drupal::state()->get('wso2_auth_logout_token_' . $uid);
-  if (!empty($id_token)) {
-    // Get the WSO2 Auth service.
-    $wso2_auth = \Drupal::service('wso2_auth.authentication');
-
-    // Generate the logout URL.
-    $logout_url = $wso2_auth->getLogoutUrl($id_token, \Drupal\Core\Url::fromRoute('<front>')->setAbsolute()->toString());
-
-    // Remove the stored token.
-    \Drupal::state()->delete('wso2_auth_logout_token_' . $uid);
-
-    // Set the response to redirect to the WSO2 logout URL.
-    $response = new \Symfony\Component\HttpFoundation\RedirectResponse($logout_url);
-  }
-}

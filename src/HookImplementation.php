@@ -205,26 +205,4 @@ class HookImplementation implements ContainerInjectionInterface {
     $session->remove('wso2_auth_session');
   }
 
-  /**
-   * Implements hook_user_logout_redirect_alter().
-   */
-  #[Hook(hook: 'user_logout_redirect_alter')]
-  public function userLogoutRedirectAlter(&$response) {
-    // Get the current user before logout.
-    $uid = $this->currentUser->id();
-
-    // Check if we have an id_token for this user.
-    $id_token = $this->state->get('wso2_auth_logout_token_' . $uid);
-    if (!empty($id_token)) {
-      // Generate the logout URL.
-      $logout_url = $this->wso2Auth->getLogoutUrl($id_token, Url::fromRoute('<front>')->setAbsolute()->toString());
-
-      // Remove the stored token.
-      $this->state->delete('wso2_auth_logout_token_' . $uid);
-
-      // Set the response to redirect to the WSO2 logout URL.
-      $response = new RedirectResponse($logout_url);
-    }
-  }
-
 }
