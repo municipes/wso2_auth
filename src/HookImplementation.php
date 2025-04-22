@@ -151,12 +151,21 @@ class HookImplementation implements ContainerInjectionInterface {
     // Get configuration
     $config = \Drupal::config('wso2_auth.settings');
 
+    // Aggiunge un callback personalizzato alla submission del form
+    $form['#submit'][] = 'wso2_auth_user_login_form_submit';
+
     // Add buttons for citizen and operator login
     if ($config->get('general.citizen_enabled')) {
+      // Aggiungi timestamp come nocache per evitare problemi con la cache del browser
+      $url = Url::fromRoute('wso2_auth.authorize', [
+        'type' => 'citizen',
+        'nc' => time(),
+      ]);
+      
       $form['wso2_auth_citizen'] = [
         '#type' => 'link',
         '#title' => t('Login con SPID/CIE (Cittadino)'),
-        '#url' => Url::fromRoute('wso2_auth.authorize', ['type' => 'citizen']),
+        '#url' => $url,
         '#attributes' => [
           'class' => ['btn', 'btn-primary', 'me-5', 'mb-5', 'wso2-auth-button', 'citizen-login'],
         ],
@@ -166,10 +175,16 @@ class HookImplementation implements ContainerInjectionInterface {
 
     // Add operator button if operator auth is enabled
     if ($config->get('operator.enabled')) {
+      // Aggiungi timestamp come nocache per evitare problemi con la cache del browser
+      $url = Url::fromRoute('wso2_auth.authorize', [
+        'type' => 'operator',
+        'nc' => time(),
+      ]);
+      
       $form['wso2_auth_operator'] = [
         '#type' => 'link',
         '#title' => t('Login come Operatore'),
-        '#url' => Url::fromRoute('wso2_auth.authorize', ['type' => 'operator']),
+        '#url' => $url,
         '#attributes' => [
           'class' => ['btn', 'btn-danger', 'me-5', 'mb-5', 'wso2-auth-button', 'operator-login'],
         ],
@@ -180,7 +195,7 @@ class HookImplementation implements ContainerInjectionInterface {
     // Add SPID logo if enabled
     if ($config->get('picture_enabled')) {
       $form['wso2_logo'] = [
-        '#markup' => '<div class="wso2-auth-logo m-2"><img src="/' . \Drupal::service('extension.list.module')->getPath('wso2_auth') . '/images/Sign-in-with-WSO2-lighter-small.png" alt="SPID Login" /></div>',
+        '#markup' => '<div class="wso2-auth-logo m-2"><img src="/' . $this->moduleHandler->getPath('wso2_auth') . '/images/Sign-in-with-WSO2-lighter-small.png" alt="SPID Login" /></div>',
         '#weight' => -110,
       ];
     }
@@ -191,18 +206,65 @@ class HookImplementation implements ContainerInjectionInterface {
    */
   #[Hook(hook: 'user_logout')]
   public function userLogout($account) {
-    // Get the session.
+    // Ottieni la sessione.
     $session = $this->requestStack->getCurrentRequest()->getSession();
 
     // Check if the user has a WSO2 session.
     $wso2_session = $session->get('wso2_auth_session');
+
+    \Drupal::logger('wso2_auth')->notice('User logout - UID: @uid', [
+      '@uid' => $account->id(),
+    ]);
+
     if (!empty($wso2_session) && !empty($wso2_session['id_token'])) {
-      // Store the id_token in the state service so it can be used after the user is logged out.
-      $this->state->set('wso2_auth_logout_token_' . $account->id(), $wso2_session['id_token']);
+      // Salva il token in state (come backup)
+      $token_key = 'wso2_auth_logout_token_' . $account->id();
+      $this->state->set($token_key, $wso2_session['id_token']);
+
+      // Ottieni l'environment helper
+      $environment_helper = \Drupal::service('wso2_auth.environment_helper');
+
+      // Ottieni l'URL di logout da WSO2EnvironmentHelper
+      $logout_url = $environment_helper->getLogoutUrl();
+
+      // Ottieni l'URL di base
+      $base_url = $this->requestStack->getCurrentRequest()->getSchemeAndHttpHost();
+
+      // Costruisci i parametri di query
+      $query_params = [
+        'id_token_hint' => $wso2_session['id_token'],
+        'post_logout_redirect_uri' => $base_url,
+      ];
+
+      // Costruisci l'URL completo
+      $full_logout_url = $logout_url . '?' . http_build_query($query_params);
+
+      \Drupal::logger('wso2_auth')->notice('URL di logout WSO2 generato usando environment helper: @url', [
+        '@url' => $full_logout_url,
+      ]);
+
+      // Imposta l'header di location per il redirect dopo che termina lo script
+      $response = new RedirectResponse($full_logout_url);
+      $response->send();
+
+      // Termina l'esecuzione
+      // exit();
+    } else {
+      \Drupal::logger('wso2_auth')->warning('Nessun token trovato nella sessione WSO2 durante logout');
     }
 
     // Clear the WSO2 session.
     $session->remove('wso2_auth_session');
+  }
+  
+  /**
+   * Form submission handler for user_login_form.
+   *
+   * Assicura che la sessione sia correttamente salvata prima del redirect.
+   */
+  public function userLoginFormSubmit($form, FormStateInterface $form_state) {
+    // Non facciamo nulla di particolare qui, ma siccome il form aggiunge
+    // questo submit handler, dobbiamo definirlo
   }
 
 }
