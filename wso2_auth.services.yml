@@ -27,9 +27,9 @@ services:
   wso2_auth.operator_privileges:
     class: Drupal\wso2_auth\Service\OperatorPrivilegesService
     arguments: ['@http_client', '@config.factory', '@logger.factory', '@request_stack']
-    
+
   wso2_auth.hook_implementation:
     class: Drupal\wso2_auth\HookImplementation
-    arguments: ['@wso2_auth.authentication', '@request_stack', '@module_handler', '@state', '@current_user']
+    arguments: ['@wso2_auth.authentication', '@request_stack', '@module_handler', '@extension.list.module', '@state', '@current_user']
     tags:
       - { name: 'hook_implementation' }

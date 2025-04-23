@@ -6,6 +6,7 @@ namespace Drupal\wso2_auth;
 
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Extension\ModuleExtensionList;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Hook\Attribute\Hook;
 use Drupal\Core\Routing\RouteMatchInterface;
@@ -46,6 +47,13 @@ class HookImplementation implements ContainerInjectionInterface {
   protected $moduleHandler;
 
   /**
+   * The module extension list.
+   *
+   * @var \Drupal\Core\Extension\ModuleExtensionList
+   */
+  protected $moduleExtensionList;
+
+  /**
    * The state service.
    *
    * @var \Drupal\Core\State\StateInterface
@@ -68,6 +76,8 @@ class HookImplementation implements ContainerInjectionInterface {
    *   The request stack.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
+   * @param \Drupal\Core\Extension\ModuleExtensionList $module_extension_list
+   *   The module extension list.
    * @param \Drupal\Core\State\StateInterface $state
    *   The state service.
    * @param \Drupal\Core\Session\AccountInterface $current_user
@@ -77,12 +87,14 @@ class HookImplementation implements ContainerInjectionInterface {
     WSO2AuthService $wso2_auth,
     RequestStack $request_stack,
     ModuleHandlerInterface $module_handler,
+    ModuleExtensionList $module_extension_list,
     StateInterface $state,
     AccountInterface $current_user
   ) {
     $this->wso2Auth = $wso2_auth;
     $this->requestStack = $request_stack;
     $this->moduleHandler = $module_handler;
+    $this->moduleExtensionList = $module_extension_list;
     $this->state = $state;
     $this->currentUser = $current_user;
   }
@@ -95,6 +107,7 @@ class HookImplementation implements ContainerInjectionInterface {
       $container->get('wso2_auth.authentication'),
       $container->get('request_stack'),
       $container->get('module_handler'),
+      $container->get('extension.list.module'),
       $container->get('state'),
       $container->get('current_user')
     );
@@ -120,7 +133,7 @@ class HookImplementation implements ContainerInjectionInterface {
    */
   #[Hook(hook: 'theme')]
   public function theme($existing, $type, $theme, $path) {
-    $module_path = $this->moduleHandler->getModule('wso2_auth')->getPath();
+    $module_path = $this->moduleExtensionList->getPath('wso2_auth');
     return [
       'wso2_auth_block' => [
         'variables' => [
@@ -161,7 +174,7 @@ class HookImplementation implements ContainerInjectionInterface {
         'type' => 'citizen',
         'nc' => time(),
       ]);
-      
+
       $form['wso2_auth_citizen'] = [
         '#type' => 'link',
         '#title' => t('Login con SPID/CIE (Cittadino)'),
@@ -180,7 +193,7 @@ class HookImplementation implements ContainerInjectionInterface {
         'type' => 'operator',
         'nc' => time(),
       ]);
-      
+
       $form['wso2_auth_operator'] = [
         '#type' => 'link',
         '#title' => t('Login come Operatore'),
@@ -195,7 +208,7 @@ class HookImplementation implements ContainerInjectionInterface {
     // Add SPID logo if enabled
     if ($config->get('picture_enabled')) {
       $form['wso2_logo'] = [
-        '#markup' => '<div class="wso2-auth-logo m-2"><img src="/' . $this->moduleHandler->getPath('wso2_auth') . '/images/Sign-in-with-WSO2-lighter-small.png" alt="SPID Login" /></div>',
+        '#markup' => '<div class="wso2-auth-logo m-2"><img src="/' . $this->moduleExtensionList->getPath('wso2_auth') . '/images/Sign-in-with-WSO2-lighter-small.png" alt="SPID Login" /></div>',
         '#weight' => -110,
       ];
     }
@@ -256,7 +269,7 @@ class HookImplementation implements ContainerInjectionInterface {
     // Clear the WSO2 session.
     $session->remove('wso2_auth_session');
   }
-  
+
   /**
    * Form submission handler for user_login_form.
    *
