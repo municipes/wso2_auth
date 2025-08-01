@@ -79,7 +79,7 @@
 
             debugLog('🔗 URL probe:', authUrl.toString());
 
-            // 2. Apri popup invisibile (0x0 pixel)
+            // 2. Apri popup invisibile (0x0 pixel) - production pattern
             const popup = window.open(
               authUrl.toString(),
               'wso2_sso_probe',
@@ -350,85 +350,30 @@
           executeAuthCheck();
         };
 
-        // Mostra notifica per SSO check invece di automatico
-        const showSSOCheckNotification = function() {
-          const notification = document.createElement('div');
-          notification.style.cssText = `
-            position: fixed; top: 0; left: 0; right: 0; z-index: 10000;
-            background: linear-gradient(135deg, #FF9800, #F57C00);
-            color: white; padding: 15px; text-align: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          `;
-
-          notification.innerHTML = `
-            <div style="max-width: 600px; margin: 0 auto;">
-              <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">
-                🔐 Controlla se hai già effettuato l'accesso
-              </div>
-              <div style="font-size: 13px; opacity: 0.9; margin-bottom: 15px;">
-                Clicca per verificare automaticamente la tua sessione
-              </div>
-              <button id="sso-check-btn" style="
-                background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);
-                padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px;
-                margin-right: 10px;
-              ">Verifica Accesso</button>
-              <button id="sso-dismiss-btn" style="
-                background: transparent; color: white; border: 1px solid rgba(255,255,255,0.3);
-                padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px;
-              ">Ignora</button>
-            </div>
-          `;
-
-          document.body.appendChild(notification);
-
-          // Handler per il pulsante di verifica
-          notification.querySelector('#sso-check-btn').addEventListener('click', () => {
-            debugLog('👆 Utente ha cliccato per verifica SSO');
-            document.body.removeChild(notification);
-            executeAuthCheck();
-          });
-
-          // Handler per il pulsante ignora
-          notification.querySelector('#sso-dismiss-btn').addEventListener('click', () => {
-            debugLog('❌ Utente ha ignorato verifica SSO');
-            document.body.removeChild(notification);
-            localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
-          });
-
-          // Rimozione automatica dopo 10 secondi
-          setTimeout(() => {
-            if (document.body.contains(notification)) {
-              document.body.removeChild(notification);
-              localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
-            }
-          }, 10000);
-        };
-
-        // Avvia il controllo dopo caricamento della pagina
-        const initializeNotification = () => {
-          debugLog('📄 Inizializzazione notifica SSO...');
+        // Production-grade silent SSO probe (pattern da Google, Microsoft, Auth0)
+        const initializeSilentProbe = () => {
+          debugLog('📄 Inizializzazione silent SSO probe...');
           
           if (document.hidden || document.visibilityState === 'prerender') {
             debugLog('📄 Pagina nascosta o prerender - skip controllo');
             return;
           }
 
-          // Mostra la notifica dopo 2 secondi per permettere il caricamento della pagina
-          setTimeout(() => {
-            debugLog('🔔 Mostro notifica SSO check');
-            showSSOCheckNotification();
-          }, 2000);
+          // Usa pointerdown per triggering rapido (prima del paint)
+          debugLog('👆 Attendo prima interazione utente per silent probe...');
+          document.addEventListener('pointerdown', () => {
+            debugLog('👆 Prima interazione rilevata - avvio silent probe');
+            executeAuthCheck();
+          }, { once: true });
         };
 
         // Controlla se DOM è già carico
         if (document.readyState === 'loading') {
           debugLog('📄 DOM in caricamento - attendo DOMContentLoaded');
-          document.addEventListener('DOMContentLoaded', initializeNotification);
+          document.addEventListener('DOMContentLoaded', initializeSilentProbe);
         } else {
           debugLog('📄 DOM già carico - avvio immediato');
-          initializeNotification();
+          initializeSilentProbe();
         }
 
         // Helper debug
