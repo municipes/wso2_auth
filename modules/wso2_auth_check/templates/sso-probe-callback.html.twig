@@ -51,7 +51,7 @@
             error: error,
             error_description: errorDescription,
             timestamp: Date.now()
-          }, window.opener.location.origin);
+          }, '*');
 
           // Aggiorna messaggio
           const messageEl = document.querySelector('.message');
