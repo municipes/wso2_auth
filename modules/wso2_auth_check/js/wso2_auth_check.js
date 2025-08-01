@@ -105,9 +105,9 @@
           // Costruisci l'URL per l'iframe di controllo sessione
           const checkSessionUrl = new URL(idpConfig.checkSessionUrl);
           checkSessionUrl.searchParams.append('client_id', clientId);
-	        checkSessionUrl.searchParams.append('redirect_uri', idpConfig.redirectUri);
+	        // checkSessionUrl.searchParams.append('redirect_uri', idpConfig.redirectUri);
           // Aggiungi un parametro per evitare la cache del browser
-          checkSessionUrl.searchParams.append('nc', Date.now().toString());
+          // checkSessionUrl.searchParams.append('nc', Date.now().toString());
 
           debugLog('URL iframe checkSession:', checkSessionUrl.toString());
 
@@ -116,8 +116,8 @@
           opFrame.style.display = 'none';  // Nascondi l'iframe
           opFrame.src = checkSessionUrl.toString();
 
-          // Inizializza variabili per la gestione della sessione  
-          let sessionState = null; // Inizializza con null per primo controllo
+          // Inizializza variabili per la gestione della sessione
+          // let sessionState = null; // Inizializza con null per primo controllo
           let checkSessionInterval = null;
           let initialized = false;
           let retryCount = 0;
@@ -129,13 +129,7 @@
               try {
                 if (!initialized) {
                   debugLog('Tentativo di inizializzazione #' + (retryCount + 1));
-                  
-                  // Per il primo controllo, generiamo un session_state dummy
-                  if (sessionState === null) {
-                    // Genera un session_state dummy per il primo controllo
-                    sessionState = 'dummy_session_state.' + Math.random().toString(36).substr(2, 9);
-                    debugLog('Generato sessionState dummy per primo controllo:', sessionState);
-                  }
+
 
                   // Invia il messaggio nel formato atteso: "client_id session_state"
                   const message = clientId + ' ' + sessionState;
@@ -143,7 +137,7 @@
                   opFrame.contentWindow.postMessage(message, 'https://id.055055.it:9443');
 
                   retryCount++;
-                  
+
                   if (retryCount >= maxRetries) {
                     initialized = true; // Considera inizializzato dopo i tentativi
                   }
@@ -173,7 +167,7 @@
             }
 
             const message = event.data;
-            
+
             // Segna come inizializzato dopo il primo messaggio ricevuto
             if (!initialized) {
               initialized = true;
@@ -186,7 +180,7 @@
               initialized = true;
               // Memorizza che l'utente non è autenticato per evitare controlli troppo frequenti
               localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
-              
+
               // FERMA il controllo periodico - abbiamo la risposta
               if (checkSessionInterval) {
                 clearInterval(checkSessionInterval);
@@ -194,25 +188,27 @@
                 debugLog('Controllo periodico checksession fermato - nessuna autenticazione');
               }
             } else if (message === 'changed') {
-              debugLog('Stato sessione: cambiato - l\'utente è autenticato su WSO2');
+              debugLog('Stato sessione: cambiato - sessionState non corrisponde');
               initialized = true;
-              
+
               // FERMA il controllo periodico per evitare loop
               if (checkSessionInterval) {
                 clearInterval(checkSessionInterval);
                 checkSessionInterval = null;
                 debugLog('Controllo periodico checksession fermato');
               }
-              
-              // L'utente è autenticato su WSO2, reindirizza al login automatico
-              debugLog('Utente autenticato su WSO2 - avvio login automatico su Drupal');
-              redirectToLogin();
+
+              // 'changed' significa solo che il sessionState non corrisponde
+              // Non possiamo assumere che l'utente sia autenticato
+              // Questo è normale al primo caricamento o quando non c'è sessione
+              debugLog('Primo controllo o nessuna sessione attiva - nessun reindirizzamento');
+              localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
             } else if (message === 'error') {
               debugLog('Stato sessione: errore');
               initialized = true;
               // Memorizza il fallimento per evitare check troppo frequenti
               localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
-              
+
               // FERMA il controllo periodico in caso di errore
               if (checkSessionInterval) {
                 clearInterval(checkSessionInterval);
