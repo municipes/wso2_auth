@@ -171,18 +171,41 @@
 
             // Gestiamo diversi possibili formati di risposta
             if (message === 'unchanged') {
-              debugLog('Stato sessione: invariato');
+              debugLog('Stato sessione: invariato - utente non autenticato su WSO2');
               initialized = true;
+              // Memorizza che l'utente non è autenticato per evitare controlli troppo frequenti
+              localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+              
+              // FERMA il controllo periodico - abbiamo la risposta
+              if (checkSessionInterval) {
+                clearInterval(checkSessionInterval);
+                checkSessionInterval = null;
+                debugLog('Controllo periodico checksession fermato - nessuna autenticazione');
+              }
             } else if (message === 'changed') {
               debugLog('Stato sessione: cambiato - l\'utente è autenticato su WSO2');
               initialized = true;
               // L'utente è autenticato su WSO2, ma non reindirizzare automaticamente
               debugLog('Rilevata autenticazione WSO2, ma reindirizzamento automatico disabilitato');
+              
+              // FERMA il controllo periodico per evitare loop
+              if (checkSessionInterval) {
+                clearInterval(checkSessionInterval);
+                checkSessionInterval = null;
+                debugLog('Controllo periodico checksession fermato');
+              }
             } else if (message === 'error') {
               debugLog('Stato sessione: errore');
               initialized = true;
               // Memorizza il fallimento per evitare check troppo frequenti
               localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+              
+              // FERMA il controllo periodico in caso di errore
+              if (checkSessionInterval) {
+                clearInterval(checkSessionInterval);
+                checkSessionInterval = null;
+                debugLog('Controllo periodico checksession fermato per errore');
+              }
             } else if (typeof message === 'string') {
               // Altri possibili formati
               if (message.startsWith('init:')) {
