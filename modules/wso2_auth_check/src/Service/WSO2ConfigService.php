@@ -107,14 +107,17 @@ class WSO2ConfigService {
    *   Array con le configurazioni.
    */
   public function getConfig() {
+    $check_config = $this->configFactory->get('wso2_auth_check.settings');
+    
     $config = [
       'idpUrl' => '',
       'clientId' => '',
       'redirectUri' => \Drupal::request()->getSchemeAndHttpHost() . '/wso2-auth-callback',
       'loginPath' => '',  // Sarà impostato in base al modulo attivo
-      'checkInterval' => $this->configFactory->get('wso2_auth_check.settings')->get('check_interval') ?? 3,
+      'checkInterval' => $check_config->get('check_interval') ?? 3,
       'debug' => $this->isDebugEnabled(),
-      'checkSessionMethod' => $this->configFactory->get('wso2_auth_check.settings')->get('check_session_method') ?? 'iframe',
+      'checkSessionMethod' => $check_config->get('check_session_method') ?? 'checksession',
+      'checkSessionUrl' => $check_config->get('check_session_url') ?? '',
     ];
 
     // Usa wso2_auth se disponibile.
@@ -128,7 +131,10 @@ class WSO2ConfigService {
 
       if ($auth_config->get('enabled')) {
         $config['idpUrl'] = $full_auth_url;
-        $config['checkSessionUrl'] = $check_session_url; // Aggiungi l'URL per il controllo sessione
+        // Se non è stato specificato un URL personalizzato, usa quello dal modulo wso2_auth
+        if (empty($config['checkSessionUrl'])) {
+          $config['checkSessionUrl'] = $check_session_url;
+        }
         $config['redirectUri'] = \Drupal::request()->getSchemeAndHttpHost() . '/wso2-auth-callback';
         $config['clientId'] = $auth_config->get('citizen.client_id');
         $config['loginPath'] = '/wso2-auth/authorize/citizen';
@@ -147,7 +153,10 @@ class WSO2ConfigService {
 
         $authorize = '/oauth2/authorize';
         $config['idpUrl'] = rtrim($server_url, '/') . $authorize;
-        $config['checkSessionUrl'] = rtrim($server_url, '/') . '/oidc/checksession'; // Aggiungi URL checksession
+        // Se non è stato specificato un URL personalizzato, usa quello di default per wso2silfi
+        if (empty($config['checkSessionUrl'])) {
+          $config['checkSessionUrl'] = rtrim($server_url, '/') . '/oidc/checksession';
+        }
         $config['redirectUri'] = \Drupal::request()->getSchemeAndHttpHost() . '/oauth2/authorized';
         $config['clientId'] = $silfi_config->get('citizen.client_id');
         $config['loginPath'] = '/wso2silfi/connect/cittadino';

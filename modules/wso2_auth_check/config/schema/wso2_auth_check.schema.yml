@@ -14,3 +14,6 @@ wso2_auth_check.settings:
     check_session_method:
       type: string
       label: 'Session check method'
+    check_session_url:
+      type: string
+      label: 'OIDC Check Session URL'
