@@ -407,7 +407,9 @@
         };
 
         // Avvia il controllo dopo caricamento della pagina
-        document.addEventListener('DOMContentLoaded', () => {
+        const initializeNotification = () => {
+          debugLog('📄 Inizializzazione notifica SSO...');
+          
           if (document.hidden || document.visibilityState === 'prerender') {
             debugLog('📄 Pagina nascosta o prerender - skip controllo');
             return;
@@ -415,9 +417,19 @@
 
           // Mostra la notifica dopo 2 secondi per permettere il caricamento della pagina
           setTimeout(() => {
+            debugLog('🔔 Mostro notifica SSO check');
             showSSOCheckNotification();
           }, 2000);
-        });
+        };
+
+        // Controlla se DOM è già carico
+        if (document.readyState === 'loading') {
+          debugLog('📄 DOM in caricamento - attendo DOMContentLoaded');
+          document.addEventListener('DOMContentLoaded', initializeNotification);
+        } else {
+          debugLog('📄 DOM già carico - avvio immediato');
+          initializeNotification();
+        }
 
         // Helper debug
         if (config.debug) {
