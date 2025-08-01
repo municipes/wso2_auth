@@ -15,10 +15,22 @@
      case 'help.page.wso2_auth_check':
        $output = '';
        $output .= '<h3>' . t('About') . '</h3>';
-       $output .= '<p>' . t('WSO2 Auth Check verifica se un utente è già autenticato presso l\'IdP WSO2 e lo autentica automaticamente in Drupal.') . '</p>';
+       $output .= '<p>' . t('WSO2 Auth Check verifica se un utente è già autenticato presso l\'IdP WSO2 e lo autentica automaticamente in Drupal usando popup invisibili.') . '</p>';
        return $output;
    }
  }
+
+/**
+ * Implements hook_theme().
+ */
+function wso2_auth_check_theme($existing, $type, $theme, $path) {
+  return [
+    'sso_probe_callback' => [
+      'variables' => [],
+      'template' => 'sso-probe-callback',
+    ],
+  ];
+}
 
 /**
  * Implements hook_page_attachments().
@@ -41,8 +53,9 @@ function wso2_auth_check_page_attachments(array &$attachments) {
     $current_path = \Drupal::service('path.current')->getPath();
     if (strpos($current_path, '/wso2-auth-callback') === 0
       || strpos($current_path, '/oauth2/authorized') === 0
+      || strpos($current_path, '/sso/') === 0
       || strpos($current_path, '/user') === 0) {
-      // Non caricare il JavaScript sull'iframe, pagina di callback o pagine utente
+      // Non caricare il JavaScript sulle pagine di callback o utente
       $config_service->debug('Pagina di callback o utente rilevata, skip caricamento JS');
       return;
     }
@@ -53,9 +66,9 @@ function wso2_auth_check_page_attachments(array &$attachments) {
     // Ottieni le configurazioni dal servizio
     $settings = $config_service->getConfig();
 
-    // Calcola dinamicamente il redirect_uri
+    // Calcola dinamicamente il redirect_uri per il probe
     $base_url = \Drupal::request()->getSchemeAndHttpHost();
-    $settings['redirectUri'] = $base_url . '/wso2-auth-callback';
+    $settings['redirectUri'] = $base_url . '/sso/probe-callback';
 
     // Aggiungi il token CSRF
     $settings['csrfToken'] = \Drupal::csrfToken()->get('wso2_auth_' . session_id());
