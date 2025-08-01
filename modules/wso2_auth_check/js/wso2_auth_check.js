@@ -193,8 +193,8 @@
           opFrame.style.display = 'none';  // Nascondi l'iframe
           opFrame.src = checkSessionUrl.toString();
 
-          // Inizializza variabili per la gestione della sessione
-          let sessionState = 'unknown'; // Inizializza con un valore di default
+          // Inizializza variabili per la gestione della sessione  
+          let sessionState = null; // Inizializza con null per primo controllo
           let checkSessionInterval = null;
           let initialized = false;
           let retryCount = 0;
@@ -204,26 +204,31 @@
           const checkSessionState = function() {
             if (opFrame.contentWindow) {
               try {
-                if (!initialized && retryCount < maxRetries) {
+                if (!initialized) {
                   debugLog('Tentativo di inizializzazione #' + (retryCount + 1));
-
-                  // Primo invio: tentativo di inizializzazione
-                  debugLog('Invio messaggio di inizializzazione RP frame');
-                  opFrame.contentWindow.postMessage('init', '*');
-
-                  retryCount++;
-
-                  // Se dopo tentativi ancora non si è inizializzata, prova con un approccio più diretto
-                  if (retryCount === maxRetries) {
-                    debugLog('Tentativo diretto di comunicazione');
-                    // Tenta direttamente un controllo di sessione
-                    opFrame.contentWindow.postMessage(clientId + ' ' + sessionState, '*');
+                  
+                  // Per il primo controllo, generiamo un session_state dummy
+                  if (sessionState === null) {
+                    // Genera un session_state dummy per il primo controllo
+                    sessionState = 'dummy_session_state.' + Math.random().toString(36).substr(2, 9);
+                    debugLog('Generato sessionState dummy per primo controllo:', sessionState);
                   }
-                } else if (initialized) {
-                  // Invia il messaggio per controllare lo stato
+
+                  // Invia il messaggio nel formato atteso: "client_id session_state"
                   const message = clientId + ' ' + sessionState;
                   debugLog('Invio messaggio di controllo sessione:', message);
-                  opFrame.contentWindow.postMessage(message, '*');
+                  opFrame.contentWindow.postMessage(message, 'https://id.055055.it:9443');
+
+                  retryCount++;
+                  
+                  if (retryCount >= maxRetries) {
+                    initialized = true; // Considera inizializzato dopo i tentativi
+                  }
+                } else {
+                  // Controlli successivi con sessionState aggiornato
+                  const message = clientId + ' ' + sessionState;
+                  debugLog('Invio messaggio di controllo sessione (controllo periodico):', message);
+                  opFrame.contentWindow.postMessage(message, 'https://id.055055.it:9443');
                 }
               } catch (e) {
                 debugLog('Errore durante il controllo della sessione:', e);
@@ -238,13 +243,19 @@
             // Per il debugging, logga tutti i messaggi ricevuti
             debugLog('Messaggio ricevuto (da ' + event.origin + '):', event.data);
 
-            // Non filtrare per origine all'inizio, per diagnostica
-            // if (event.origin !== new URL(idpConfig.checkSessionUrl).origin) {
-            //   debugLog('Origine messaggio non valida:', event.origin);
-            //   return;
-            // }
+            // Verifica origine del messaggio
+            if (event.origin !== 'https://id.055055.it:9443') {
+              debugLog('Origine messaggio non valida:', event.origin);
+              return;
+            }
 
             const message = event.data;
+            
+            // Segna come inizializzato dopo il primo messaggio ricevuto
+            if (!initialized) {
+              initialized = true;
+              debugLog('Comunicazione checksession inizializzata');
+            }
 
             // Gestiamo diversi possibili formati di risposta
             if (message === 'unchanged') {
@@ -323,6 +334,18 @@
           // Gestisci il caricamento dell'iframe
           opFrame.onload = function() {
             debugLog('Iframe checkSession caricato');
+            // Prova a ispezionare il contenuto dell'iframe per debug
+            try {
+              setTimeout(function() {
+                if (opFrame.contentDocument && opFrame.contentDocument.body) {
+                  debugLog('Contenuto iframe checksession:', opFrame.contentDocument.body.innerHTML);
+                } else {
+                  debugLog('Impossibile accedere al contenuto iframe (cross-origin)');
+                }
+              }, 1000);
+            } catch (e) {
+              debugLog('Errore accesso contenuto iframe:', e);
+            }
 
             // Avvia la sequenza di inizializzazione
             setTimeout(function() {
