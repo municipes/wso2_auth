@@ -110,6 +110,7 @@ class WSO2ConfigService {
     $check_config = $this->configFactory->get('wso2_auth_check.settings');
 
     $config = [
+      'enabled' => $this->isEnabled(),
       'idpUrl' => '',
       'clientId' => '',
       'redirectUri' => \Drupal::request()->getSchemeAndHttpHost() . '/sso/probe-callback',

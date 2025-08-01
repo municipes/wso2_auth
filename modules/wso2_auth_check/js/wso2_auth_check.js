@@ -18,6 +18,12 @@
         const config = drupalSettings.wso2AuthCheck || {};
         debugLog('🚀 WSO2 Silent SSO Probe inizializzato');
 
+        // Skip se funzionalità disabilitata
+        if (config.enabled === false) {
+          debugLog('⚠️ WSO2 Auth Check disabilitato nella configurazione');
+          return;
+        }
+
         // Skip se utente già loggato
         if (drupalSettings.user && drupalSettings.user.uid > 0) {
           debugLog('✅ Utente già autenticato su Drupal');
