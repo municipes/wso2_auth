@@ -105,7 +105,7 @@
           // Costruisci l'URL per l'iframe di controllo sessione
           const checkSessionUrl = new URL(idpConfig.checkSessionUrl);
           checkSessionUrl.searchParams.append('client_id', clientId);
-	        // checkSessionUrl.searchParams.append('redirect_uri', idpConfig.redirectUri);
+	        checkSessionUrl.searchParams.append('redirect_uri', idpConfig.redirectUri);
           // Aggiungi un parametro per evitare la cache del browser
           // checkSessionUrl.searchParams.append('nc', Date.now().toString());
 
@@ -117,7 +117,7 @@
           opFrame.src = checkSessionUrl.toString();
 
           // Inizializza variabili per la gestione della sessione
-          // let sessionState = null; // Inizializza con null per primo controllo
+          let sessionState = null; // Inizializza con null per primo controllo
           let checkSessionInterval = null;
           let initialized = false;
           let retryCount = 0;
