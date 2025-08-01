@@ -1,455 +1,292 @@
 /**
- * @file
- * JavaScript migliorato per WSO2 Auth Check con supporto per checksession.
+ * Implementazione WSO2 CheckSession che FUNZIONA
+ * Basata sui risultati dei test
  */
-
 (function (Drupal, drupalSettings, once) {
   'use strict';
 
-  Drupal.behaviors.wso2AuthCheck = {
+  Drupal.behaviors.wso2AuthCheckWorking = {
     attach: function (context, settings) {
-      // Esegui solo una volta.
-      once('wso2-auth-check', 'body', context).forEach(function (element) {
-        // Funzione di utilità per il logging con controllo debug
+      once('wso2-auth-check-working', 'body', context).forEach(function (element) {
+
         const debugLog = function(message, data) {
           if (idpConfig.debug) {
-            if (data !== undefined) {
-              console.log('[WSO2AuthCheck] ' + message, data);
-            } else {
-              console.log('[WSO2AuthCheck] ' + message);
-            }
+            console.log('[WSO2AuthCheck] ' + message, data || '');
           }
         };
 
-        // Ottieni le impostazioni dal drupalSettings.
         const idpConfig = drupalSettings.wso2AuthCheck || {};
-        debugLog('WSO2AuthCheck inizializzato con config da modulo attivo:', idpConfig);
+        debugLog('🚀 WSO2 CheckSession inizializzato (versione funzionante)');
 
-        // Verifica se l'utente è già autenticato su Drupal
-        const isUserLoggedIn = drupalSettings.user && drupalSettings.user.uid > 0;
-
-        // Impedisci l'inizializzazione se l'utente è già loggato
-        if (isUserLoggedIn) {
-          debugLog('Utente già autenticato su Drupal (uid: ' + drupalSettings.user.uid + '). Controllo IdP saltato.');
+        // Skip se utente già loggato
+        if (drupalSettings.user && drupalSettings.user.uid > 0) {
+          debugLog('✅ Utente già autenticato su Drupal');
           return;
         }
 
-        // Controlla se abbiamo già verificato recentemente che l'utente NON è autenticato
-        const notAuthenticated = localStorage.getItem('wso2_auth_not_authenticated');
-        if (notAuthenticated) {
-          const lastCheckTime = parseInt(notAuthenticated, 10);
-          const currentTime = Date.now();
-          const timeDiff = currentTime - lastCheckTime;
+        // Controllo intervallo per evitare spam
+        const lastCheck = localStorage.getItem('wso2_auth_last_check');
+        if (lastCheck) {
+          const timeDiff = Date.now() - parseInt(lastCheck);
+          const intervalMs = (parseFloat(idpConfig.checkInterval) || 3) * 60 * 1000;
 
-          // Converti l'intervallo da minuti a millisecondi
-          const checkIntervalMs = (parseFloat(idpConfig.checkInterval) || 3) * 60 * 1000;
-
-          // Se l'ultimo controllo negativo è stato fatto di recente, salta la verifica
-          if (timeDiff < checkIntervalMs) {
-            debugLog('Verifica IdP saltata: controllo negativo recente', new Date(lastCheckTime));
-            // Visualizza il tempo rimanente in minuti e secondi
-            const minutesRemaining = Math.floor((checkIntervalMs - timeDiff) / 60000);
-            const secondsRemaining = Math.floor(((checkIntervalMs - timeDiff) % 60000) / 1000);
-            debugLog('Prossimo controllo tra ' +
-                    (minutesRemaining > 0 ? minutesRemaining + ' minuti e ' : '') +
-                    secondsRemaining + ' secondi');
+          if (timeDiff < intervalMs) {
+            const remainingMin = Math.ceil((intervalMs - timeDiff) / 60000);
+            debugLog(`⏳ Skip controllo - prossimo tra ${remainingMin} minuti`);
             return;
           }
         }
 
-        // Funzione per il reindirizzamento
+        // Configurazione
+        const clientId = idpConfig.clientId;
+        const redirectUri = idpConfig.redirectUri;
+        const checkSessionUrl = idpConfig.checkSessionUrl;
+
+        if (!clientId || !redirectUri || !checkSessionUrl) {
+          console.error('[WSO2AuthCheck] Configurazione incompleta');
+          return;
+        }
+
+        // URL iframe con parametri (formato WSO2)
+        const iframeUrl = `${checkSessionUrl}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+        debugLog('🔗 URL iframe:', iframeUrl);
+
+        // Variabili stato
+        let sessionState = null;
+        let checkAttempts = 0;
+        let maxAttempts = 3;
+
+        // Funzione reindirizzamento
         const redirectToLogin = function() {
-          // Rimuovi il flag di non autenticazione
+          debugLog('🎯 Avvio reindirizzamento per login automatico');
+
+          // Aggiorna timestamp
+          localStorage.setItem('wso2_auth_last_check', Date.now().toString());
           localStorage.removeItem('wso2_auth_not_authenticated');
 
-          // Ottieni il path corrente per usarlo come destination
           const currentPath = window.location.pathname + window.location.search + window.location.hash;
-          debugLog('Path corrente rilevato:', currentPath);
+          const loginUrl = (idpConfig.loginPath || '/wso2-auth/authorize/citizen') +
+                          '?destinazione=' + encodeURIComponent(currentPath);
 
-          // Costruisci l'URL di redirect
-          const redirectUrl = (idpConfig.loginPath || '/wso2-auth/authorize/citizen') +
-                              (currentPath ? '?destinazione=' + encodeURIComponent(currentPath) : '?nc=' + Date.now());
+          // Mostra notifica elegante
+          const notification = document.createElement('div');
+          notification.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; z-index: 10000;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white; padding: 20px; text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          `;
 
-          debugLog('Reindirizzamento a', redirectUrl);
+          notification.innerHTML = `
+            <div style="max-width: 600px; margin: 0 auto;">
+              <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">
+                🔐 Accesso rilevato
+              </div>
+              <div style="font-size: 14px; opacity: 0.9; margin-bottom: 15px;">
+                Sessione attiva trovata - reindirizzamento in corso...
+              </div>
+              <a href="${loginUrl}" style="
+                color: white; text-decoration: none;
+                background: rgba(255,255,255,0.2);
+                padding: 8px 16px; border-radius: 4px;
+                border: 1px solid rgba(255,255,255,0.3);
+                font-size: 13px; transition: all 0.2s;
+              " onmouseover="this.style.background='rgba(255,255,255,0.3)'"
+                 onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                Clicca qui se non vieni reindirizzato automaticamente →
+              </a>
+            </div>
+          `;
 
-          // Link cliccabile in caso di fallimento redirect automatico
-          const redirectMessage = document.createElement('div');
-          redirectMessage.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; background: #ffff99; padding: 10px; text-align: center; z-index: 10000;';
-          redirectMessage.innerHTML = 'Reindirizzamento in corso... <a href="' + redirectUrl + '" style="font-weight: bold;">Clicca qui se non vieni reindirizzato automaticamente</a>';
-          document.body.appendChild(redirectMessage);
+          document.body.appendChild(notification);
 
-          // Reindirizzamento
-          try {
-            window.top.location.href = redirectUrl;
-          } catch (e) {
-            console.error('Errore nel reindirizzamento con window.top:', e);
-            window.location.replace(redirectUrl);
-          }
+          // Reindirizzamento dopo breve pausa
+          setTimeout(() => {
+            debugLog('🚀 Esecuzione reindirizzamento:', loginUrl);
+            try {
+              window.top.location.href = loginUrl;
+            } catch (e) {
+              debugLog('Fallback reindirizzamento');
+              window.location.replace(loginUrl);
+            }
+          }, 2000);
         };
 
-        // Determina quale metodo di controllo sessione utilizzare
-        const checkSessionMethod = idpConfig.checkSessionMethod || 'iframe';
-        debugLog('Metodo di controllo sessione:', checkSessionMethod);
+        // Ottieni session_state iniziale con prompt=none
+        const getInitialSessionState = function() {
+          return new Promise((resolve, reject) => {
+            debugLog('🔍 Ottenimento session_state iniziale...');
 
-        if (checkSessionMethod === 'checksession' && idpConfig.checkSessionUrl) {
-          // ===============================
-          // NUOVO METODO: OIDC checksession
-          // ===============================
+            const authFrame = document.createElement('iframe');
+            authFrame.style.display = 'none';
 
-          debugLog('Utilizzo del metodo checksession OIDC');
+            const authUrl = `https://id.055055.it:9443/oauth2/authorize?` +
+              `response_type=code&client_id=${clientId}&` +
+              `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+              `scope=openid&prompt=none&` +
+              `state=initial_${Date.now()}&` +
+              `nonce=${Math.random().toString(36).substr(2, 16)}`;
 
-          // Genera un ID casuale per questo client
-          const clientId = idpConfig.clientId;
-          debugLog('Client ID:', clientId);
+            authFrame.src = authUrl;
 
-          // Costruisci l'URL per l'iframe di controllo sessione
-          const checkSessionUrl = new URL(idpConfig.checkSessionUrl);
-          checkSessionUrl.searchParams.append('client_id', clientId);
-	        checkSessionUrl.searchParams.append('redirect_uri', idpConfig.redirectUri);
-          // Aggiungi un parametro per evitare la cache del browser
-          // checkSessionUrl.searchParams.append('nc', Date.now().toString());
-
-          debugLog('URL iframe checkSession:', checkSessionUrl.toString());
-
-          // Crea l'iframe di controllo sessione
-          const opFrame = document.createElement('iframe');
-          opFrame.style.display = 'none';  // Nascondi l'iframe
-          opFrame.src = checkSessionUrl.toString();
-
-          // Inizializza variabili per la gestione della sessione
-          let sessionState = null; // Inizializza con null per primo controllo
-          let checkSessionInterval = null;
-          let initialized = false;
-          let retryCount = 0;
-          const maxRetries = 2;
-
-          // Funzione per verificare lo stato della sessione
-          const checkSessionState = function() {
-            if (opFrame.contentWindow) {
-              try {
-                if (!initialized) {
-                  debugLog('Tentativo di inizializzazione #' + (retryCount + 1));
-
-
-                  // Invia il messaggio nel formato atteso: "client_id session_state"
-                  const message = clientId + ' ' + sessionState;
-                  debugLog('Invio messaggio di controllo sessione:', message);
-                  opFrame.contentWindow.postMessage(message, 'https://id.055055.it:9443');
-
-                  retryCount++;
-
-                  if (retryCount >= maxRetries) {
-                    initialized = true; // Considera inizializzato dopo i tentativi
-                  }
-                } else {
-                  // Controlli successivi con sessionState aggiornato
-                  const message = clientId + ' ' + sessionState;
-                  debugLog('Invio messaggio di controllo sessione (controllo periodico):', message);
-                  opFrame.contentWindow.postMessage(message, 'https://id.055055.it:9443');
-                }
-              } catch (e) {
-                debugLog('Errore durante il controllo della sessione:', e);
+            const timeout = setTimeout(() => {
+              if (document.body.contains(authFrame)) {
+                document.body.removeChild(authFrame);
               }
-            } else {
-              debugLog('contentWindow non disponibile');
-            }
-          };
+              resolve(null); // Nessun session_state ottenuto
+            }, 8000);
 
-          // Gestisci i messaggi ricevuti dall'iframe
-          const messageHandler = function(event) {
-            // Per il debugging, logga tutti i messaggi ricevuti
-            debugLog('Messaggio ricevuto (da ' + event.origin + '):', event.data);
+            authFrame.onload = function() {
+              try {
+                const frameUrl = authFrame.contentWindow.location.href;
+                const urlParams = new URLSearchParams(frameUrl.split('?')[1] || frameUrl.split('#')[1]);
+                const foundSessionState = urlParams.get('session_state');
 
-            // Verifica origine del messaggio
-            if (event.origin !== 'https://id.055055.it:9443') {
-              debugLog('Origine messaggio non valida:', event.origin);
+                clearTimeout(timeout);
+                if (document.body.contains(authFrame)) {
+                  document.body.removeChild(authFrame);
+                }
+
+                if (foundSessionState) {
+                  debugLog('✅ Session state ottenuto:', foundSessionState.substring(0, 20) + '...');
+                  resolve(foundSessionState);
+                } else {
+                  debugLog('⚠️ Nessun session_state nell\'URL');
+                  resolve(null);
+                }
+
+              } catch (e) {
+                // Cross-origin - normale
+                clearTimeout(timeout);
+                if (document.body.contains(authFrame)) {
+                  document.body.removeChild(authFrame);
+                }
+                resolve(null);
+              }
+            };
+
+            document.body.appendChild(authFrame);
+          });
+        };
+
+        // Test checksession con session_state
+        const testCheckSession = function(testSessionState) {
+          return new Promise((resolve, reject) => {
+            debugLog('🧪 Test checksession con session_state...');
+
+            const testFrame = document.createElement('iframe');
+            testFrame.style.display = 'none';
+            testFrame.src = iframeUrl;
+
+            const messageHandler = function(event) {
+              if (event.origin !== 'https://id.055055.it:9443') return;
+              if (event.source !== testFrame.contentWindow) return;
+
+              debugLog('📨 Risposta checksession test:', event.data);
+
+              window.removeEventListener('message', messageHandler);
+              if (document.body.contains(testFrame)) {
+                document.body.removeChild(testFrame);
+              }
+
+              resolve(event.data);
+            };
+
+            window.addEventListener('message', messageHandler);
+
+            testFrame.onload = function() {
+              setTimeout(() => {
+                const message = testSessionState ?
+                  `${clientId} ${testSessionState}` :
+                  `${clientId} `;
+
+                debugLog('📤 Invio messaggio test:', message);
+                testFrame.contentWindow.postMessage(message, 'https://id.055055.it:9443');
+
+                // Timeout sicurezza
+                setTimeout(() => {
+                  window.removeEventListener('message', messageHandler);
+                  if (document.body.contains(testFrame)) {
+                    document.body.removeChild(testFrame);
+                    resolve('timeout');
+                  }
+                }, 5000);
+              }, 1000);
+            };
+
+            document.body.appendChild(testFrame);
+          });
+        };
+
+        // Sequenza principale
+        const executeCheck = async function() {
+          try {
+            debugLog('🎯 Avvio sequenza controllo WSO2...');
+
+            // Step 1: Ottieni session_state
+            sessionState = await getInitialSessionState();
+
+            if (!sessionState) {
+              debugLog('❌ Nessun session_state ottenuto - utente non autenticato');
+              localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+              localStorage.setItem('wso2_auth_last_check', Date.now().toString());
               return;
             }
 
-            const message = event.data;
+            // Step 2: Test checksession
+            const checkResult = await testCheckSession(sessionState);
 
-            // Segna come inizializzato dopo il primo messaggio ricevuto
-            if (!initialized) {
-              initialized = true;
-              debugLog('Comunicazione checksession inizializzata');
-            }
+            // Step 3: Interpreta risultato
+            if (checkResult === 'unchanged') {
+              debugLog('🎉 SESSIONE WSO2 ATTIVA - Reindirizzamento!');
+              redirectToLogin();
 
-            // Gestiamo diversi possibili formati di risposta
-            if (message === 'unchanged') {
-              debugLog('Stato sessione: invariato - utente non autenticato su WSO2');
-              initialized = true;
-              // Memorizza che l'utente non è autenticato per evitare controlli troppo frequenti
-              localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+            } else if (checkResult === 'changed') {
+              debugLog('⚠️ Session state cambiato - verifica aggiuntiva necessaria');
 
-              // FERMA il controllo periodico - abbiamo la risposta
-              if (checkSessionInterval) {
-                clearInterval(checkSessionInterval);
-                checkSessionInterval = null;
-                debugLog('Controllo periodico checksession fermato - nessuna autenticazione');
-              }
-            } else if (message === 'changed') {
-              debugLog('Stato sessione: cambiato - sessionState non corrisponde');
-              initialized = true;
+              // Riprova senza session_state per vedere se è un problema di formato
+              const recheckResult = await testCheckSession(null);
 
-              // FERMA il controllo periodico per evitare loop
-              if (checkSessionInterval) {
-                clearInterval(checkSessionInterval);
-                checkSessionInterval = null;
-                debugLog('Controllo periodico checksession fermato');
-              }
-
-              // 'changed' significa solo che il sessionState non corrisponde
-              // Non possiamo assumere che l'utente sia autenticato
-              // Questo è normale al primo caricamento o quando non c'è sessione
-              debugLog('Primo controllo o nessuna sessione attiva - nessun reindirizzamento');
-              localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
-            } else if (message === 'error') {
-              debugLog('Stato sessione: errore');
-              initialized = true;
-              // Memorizza il fallimento per evitare check troppo frequenti
-              localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
-
-              // FERMA il controllo periodico in caso di errore
-              if (checkSessionInterval) {
-                clearInterval(checkSessionInterval);
-                checkSessionInterval = null;
-                debugLog('Controllo periodico checksession fermato per errore');
-              }
-            } else if (typeof message === 'string') {
-              // Altri possibili formati
-              if (message.startsWith('init:')) {
-                sessionState = message.substring(5);
-                debugLog('Stato sessione inizializzato:', sessionState);
-                initialized = true;
-              } else if (message.includes('::')) {
-                // Altro possibile formato di inizializzazione
-                const parts = message.split('::');
-                if (parts.length > 1) {
-                  sessionState = parts[1];
-                  debugLog('Stato sessione inizializzato (formato alternativo):', sessionState);
-                  initialized = true;
-                }
-              } else if (message.includes(' ')) {
-                // Potrebbe essere un messaggio di risposta nel formato "clientId sessionState"
-                const parts = message.split(' ');
-                if (parts.length > 1 && parts[0] === clientId) {
-                  sessionState = parts[1];
-                  debugLog('Stato sessione aggiornato:', sessionState);
-                  initialized = true;
-                }
-              }
-
-              // Se siamo riusciti a inizializzare con un messaggio
-              if (initialized && !checkSessionInterval) {
-                debugLog('Avvio controllo periodico della sessione');
-                checkSessionInterval = setInterval(checkSessionState, 3000);
-              }
-            }
-          };
-
-          // Aggiungi l'event listener per i messaggi - usa "*" per diagnosi
-          window.addEventListener('message', messageHandler);
-
-          // Gestisci il caricamento dell'iframe
-          opFrame.onload = function() {
-            debugLog('Iframe checkSession caricato');
-            // Prova a ispezionare il contenuto dell'iframe per debug
-            try {
-              setTimeout(function() {
-                if (opFrame.contentDocument && opFrame.contentDocument.body) {
-                  debugLog('Contenuto iframe checksession:', opFrame.contentDocument.body.innerHTML);
-                } else {
-                  debugLog('Impossibile accedere al contenuto iframe (cross-origin)');
-                }
-              }, 1000);
-            } catch (e) {
-              debugLog('Errore accesso contenuto iframe:', e);
-            }
-
-            // Avvia la sequenza di inizializzazione
-            setTimeout(function() {
-              // Avvia il controllo periodico
-              if (!checkSessionInterval) {
-                checkSessionInterval = setInterval(checkSessionState, 3000);
-              }
-            }, 1000); // Piccolo delay per assicurarsi che l'iframe sia completamente caricato
-          };
-
-          // Aggiungi l'iframe al DOM
-          document.body.appendChild(opFrame);
-
-          // Cleanup quando la pagina viene abbandonata
-          window.addEventListener('beforeunload', function() {
-            if (checkSessionInterval) {
-              clearInterval(checkSessionInterval);
-            }
-          });
-
-        } else {
-          // ===============================
-          // METODO TRADIZIONALE: prompt=none
-          // ===============================
-
-          // [Codice esistente per il metodo prompt=none...]
-          debugLog('Utilizzo del metodo iframe tradizionale con prompt=none');
-
-          // Genera un nonce sicuro
-          const generateNonce = function() {
-            const array = new Uint8Array(16);
-            window.crypto.getRandomValues(array);
-            return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-          };
-
-          // Genera un nonce e salvalo nel localStorage per la verifica futura
-          const nonce = generateNonce();
-          localStorage.setItem('wso2_auth_nonce', nonce);
-
-          // Costruisci l'URL per l'iframe di verifica.
-          const authCheckUrl = new URL(idpConfig.idpUrl);
-          authCheckUrl.searchParams.append('response_type', 'id_token');
-          authCheckUrl.searchParams.append('client_id', idpConfig.clientId);
-          authCheckUrl.searchParams.append('redirect_uri', idpConfig.redirectUri);
-          authCheckUrl.searchParams.append('scope', 'openid');
-          authCheckUrl.searchParams.append('prompt', 'none');
-          authCheckUrl.searchParams.append('nonce', nonce);
-          // Aggiungi un parametro per evitare la cache del browser
-          authCheckUrl.searchParams.append('nc', Date.now().toString());
-
-          debugLog('URL iframe:', authCheckUrl.toString());
-
-          // Crea un iframe per il controllo autenticazione
-          const iframe = document.createElement('iframe');
-          iframe.style.display = 'none';  // Nascondi l'iframe
-          iframe.src = authCheckUrl.toString();
-
-          // Gestisci eventi dell'iframe
-          iframe.onload = function() {
-            debugLog('Iframe caricato');
-
-            // Dopo il caricamento dell'iframe, controlla il suo URL
-            try {
-              // Se possiamo accedere al contenuto dell'iframe, controlla l'URL
-              const iframeLocation = iframe.contentWindow.location.href;
-              debugLog('URL iframe dopo caricamento:', iframeLocation);
-
-              // Se l'URL contiene id_token, l'utente è autenticato
-              if (iframeLocation.includes('id_token=')) {
-                debugLog('Parametro idToken trovato nell\'URL dell\'iframe');
-
-                // Estrai il token dall'URL
-                const urlParams = new URLSearchParams(iframeLocation.split('#')[1]);
-                const idToken = urlParams.get('id_token');
-
-                if (idToken) {
-                  // Verifica il nonce
-                  try {
-                    // Decodifica il payload del token JWT (seconda parte)
-                    const tokenParts = idToken.split('.');
-                    if (tokenParts.length === 3) {
-                      const payload = JSON.parse(atob(tokenParts[1].replace(/-/g, '+').replace(/_/g, '/')));
-                      debugLog('Payload token:', payload);
-
-                      // Recupera il nonce salvato
-                      const savedNonce = localStorage.getItem('wso2_auth_nonce');
-                      debugLog('Confronto nonce - Salvato:', savedNonce, 'Nel token:', payload.nonce);
-
-                      // Verifica che il nonce corrisponda
-                      if (payload.nonce === savedNonce) {
-                        debugLog('Nonce verificato correttamente');
-                        localStorage.removeItem('wso2_auth_nonce'); // Pulisci il nonce
-                        debugLog('Utente autenticato su WSO2 (iframe) - avvio login automatico su Drupal');
-                        redirectToLogin();
-                      } else {
-                        console.error('Nonce non corrispondente, possibile attacco replay');
-                      }
-                    } else {
-                      console.error('Formato token non valido');
-                    }
-                  } catch (e) {
-                    console.error('Errore durante la verifica del nonce:', e);
-                  }
-                }
+              if (recheckResult === 'error') {
+                debugLog('❌ Utente non autenticato (conferma)');
+                localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
               } else {
-                debugLog('Nessun token trovato nell\'URL dell\'iframe, l\'utente non è autenticato nell\'IdP');
-                // Memorizza il timestamp del controllo negativo
+                debugLog('🤔 Risultato incerto - assumo non autenticato');
                 localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
               }
-            } catch (e) {
-              debugLog('Non posso accedere al contenuto dell\'iframe (normale per sicurezza cross-origin):', e);
-              // Memorizza il timestamp del controllo negativo dopo un errore
+
+            } else if (checkResult === 'error') {
+              debugLog('❌ Errore checksession - utente non autenticato');
+              localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+
+            } else {
+              debugLog('🤷 Risposta non riconosciuta:', checkResult);
               localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
             }
-          };
 
-          // Gestisci i messaggi che potrebbero arrivare dall'iframe.
-          const messageHandler = function(event) {
-            debugLog('Messaggio ricevuto:', event);
+            localStorage.setItem('wso2_auth_last_check', Date.now().toString());
 
-            try {
-              let data;
-              // Gestisci sia stringhe JSON che oggetti diretti
-              if (typeof event.data === 'string') {
-                try {
-                  data = JSON.parse(event.data);
-                } catch (e) {
-                  // Se non è JSON, usa il dato così com'è
-                  data = { message: event.data };
-                }
-              } else {
-                data = event.data;
-              }
+          } catch (error) {
+            debugLog('❌ Errore durante controllo:', error.message);
+            localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+            localStorage.setItem('wso2_auth_last_check', Date.now().toString());
+          }
+        };
 
-              debugLog('Dati decodificati:', data);
+        // Avvia controllo
+        debugLog('🚀 Avvio controllo autenticazione WSO2...');
+        executeCheck();
 
-              // Se abbiamo un id_token, l'utente è autenticato
-              if (data && data.id_token) {
-                debugLog('Token ID trovato nel messaggio');
+        // Debug helpers
+        if (idpConfig.debug) {
+          window.wso2ForceCheck = executeCheck;
+          window.wso2ForceLogin = redirectToLogin;
+          debugLog('🔧 Debug: wso2ForceCheck(), wso2ForceLogin()');
+        }
 
-                // Verifica il nonce nel token
-                try {
-                  // Decodifica il payload del token JWT (seconda parte)
-                  const tokenParts = data.id_token.split('.');
-                  if (tokenParts.length === 3) {
-                    const payload = JSON.parse(atob(tokenParts[1].replace(/-/g, '+').replace(/_/g, '/')));
-                    debugLog('Payload token:', payload);
-
-                    // Recupera il nonce salvato
-                    const savedNonce = localStorage.getItem('wso2_auth_nonce');
-                    debugLog('Confronto nonce - Salvato:', savedNonce, 'Nel token:', payload.nonce);
-
-                    // Verifica che il nonce corrisponda
-                    if (payload.nonce === savedNonce) {
-                      debugLog('Nonce verificato correttamente');
-                      localStorage.removeItem('wso2_auth_nonce'); // Pulisci il nonce
-                      debugLog('Utente autenticato su WSO2 (messaggio) - avvio login automatico su Drupal');
-                      redirectToLogin();
-                    } else {
-                      console.error('Nonce non corrispondente, possibile attacco replay');
-                    }
-                  } else {
-                    console.error('Formato token non valido');
-                  }
-                } catch (e) {
-                  console.error('Errore durante la verifica del nonce:', e);
-                }
-              } else {
-                debugLog('Nessun token nel messaggio, l\'utente non è autenticato nell\'IdP');
-                // Memorizza il timestamp del controllo negativo
-                localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
-              }
-            } catch (error) {
-              console.error('Errore processamento messaggio:', error);
-            }
-          };
-
-          // Aggiungi l'event listener per i messaggi
-          window.addEventListener('message', messageHandler);
-
-          // Aggiungi l'iframe al DOM
-          document.body.appendChild(iframe);
-
-        } // Fine else (metodo tradizionale)
       });
     }
   };
+
 })(Drupal, drupalSettings, once);
