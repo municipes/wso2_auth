@@ -16,7 +16,7 @@
         };
 
         const idpConfig = drupalSettings.wso2AuthCheck || {};
-        debugLog('🚀 WSO2 CheckSession inizializzato (versione funzionante)');
+        debugLog('🚀 WSO2 CheckSession inizializzato');
 
         // Skip se utente già loggato
         if (drupalSettings.user && drupalSettings.user.uid > 0) {
@@ -110,7 +110,7 @@
               debugLog('Fallback reindirizzamento');
               window.location.replace(loginUrl);
             }
-          }, 2000);
+          }, 2000000000);
         };
 
         // Ottieni session_state iniziale con prompt=none
