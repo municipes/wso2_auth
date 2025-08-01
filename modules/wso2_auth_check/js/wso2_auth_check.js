@@ -57,6 +57,83 @@
           }
         }
 
+        // Funzione per verifica silenzioso con prompt=none (per confermare changed)
+        const verifyAuthenticationSilently = function() {
+          debugLog('Inizio verifica silenzioso con prompt=none');
+          
+          // Genera un nonce sicuro per la verifica
+          const generateNonce = function() {
+            const array = new Uint8Array(16);
+            window.crypto.getRandomValues(array);
+            return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+          };
+
+          const nonce = generateNonce();
+          localStorage.setItem('wso2_auth_verify_nonce', nonce);
+
+          // Costruisci l'URL per la verifica silenziosa
+          const verifyUrl = new URL(idpConfig.idpUrl);
+          verifyUrl.searchParams.append('response_type', 'id_token');
+          verifyUrl.searchParams.append('client_id', idpConfig.clientId);
+          verifyUrl.searchParams.append('redirect_uri', idpConfig.redirectUri);
+          verifyUrl.searchParams.append('scope', 'openid');
+          verifyUrl.searchParams.append('prompt', 'none');
+          verifyUrl.searchParams.append('nonce', nonce);
+          verifyUrl.searchParams.append('nc', Date.now().toString());
+
+          debugLog('URL verifica silenzioso:', verifyUrl.toString());
+
+          // Crea iframe per verifica
+          const verifyIframe = document.createElement('iframe');
+          verifyIframe.style.display = 'none';
+          verifyIframe.src = verifyUrl.toString();
+
+          verifyIframe.onload = function() {
+            debugLog('Iframe verifica caricato');
+            
+            setTimeout(function() {
+              try {
+                const iframeLocation = verifyIframe.contentWindow.location.href;
+                debugLog('URL iframe verifica dopo caricamento:', iframeLocation);
+
+                if (iframeLocation.includes('id_token=')) {
+                  // Estrai e verifica il token
+                  const urlParams = new URLSearchParams(iframeLocation.split('#')[1]);
+                  const idToken = urlParams.get('id_token');
+
+                  if (idToken) {
+                    const tokenParts = idToken.split('.');
+                    if (tokenParts.length === 3) {
+                      const payload = JSON.parse(atob(tokenParts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                      const savedNonce = localStorage.getItem('wso2_auth_verify_nonce');
+                      
+                      if (payload.nonce === savedNonce) {
+                        debugLog('Verifica silenzioso: autenticazione CONFERMATA - avvio login automatico');
+                        localStorage.removeItem('wso2_auth_verify_nonce');
+                        document.body.removeChild(verifyIframe);
+                        redirectToLogin();
+                        return;
+                      }
+                    }
+                  }
+                }
+                
+                debugLog('Verifica silenzioso: autenticazione NON confermata - nessun reindirizzamento');
+                localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+                
+              } catch (e) {
+                debugLog('Verifica silenzioso: errore accesso iframe - assumo non autenticato:', e);
+                localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+              }
+              
+              // Rimuovi iframe
+              document.body.removeChild(verifyIframe);
+            }, 2000);
+          };
+
+          document.body.appendChild(verifyIframe);
+        };
+
         // Funzione per il reindirizzamento
         const redirectToLogin = function() {
           // Rimuovi il flag di non autenticazione
@@ -183,7 +260,7 @@
                 debugLog('Controllo periodico checksession fermato - nessuna autenticazione');
               }
             } else if (message === 'changed') {
-              debugLog('Stato sessione: cambiato - l\'utente è autenticato su WSO2');
+              debugLog('Stato sessione: cambiato - verifica necessaria (changed può essere inaffidabile)');
               initialized = true;
               
               // FERMA il controllo periodico per evitare loop
@@ -193,9 +270,9 @@
                 debugLog('Controllo periodico checksession fermato');
               }
               
-              // L'utente è autenticato su WSO2, reindirizza al login automatico
-              debugLog('Utente autenticato su WSO2 - avvio login automatico su Drupal');
-              redirectToLogin();
+              // Il messaggio 'changed' non è affidabile, facciamo una verifica aggiuntiva
+              debugLog('Avvio verifica silenzioso con prompt=none per confermare autenticazione');
+              verifyAuthenticationSilently();
             } else if (message === 'error') {
               debugLog('Stato sessione: errore');
               initialized = true;
