@@ -47,7 +47,7 @@
         const lastFailure = localStorage.getItem('wso2_auth_not_authenticated');
         if (lastFailure) {
           const failureAge = Date.now() - parseInt(lastFailure);
-          const failureCooldown = 10 * 60 * 1000; // 10 minuti
+          const failureCooldown = 1 * 60 * 1000; // 1 minuti
 
           if (failureAge < failureCooldown) {
             debugLog('❌ Skip controllo - fallimento recente');
