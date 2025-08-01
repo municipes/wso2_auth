@@ -185,8 +185,6 @@
             } else if (message === 'changed') {
               debugLog('Stato sessione: cambiato - l\'utente è autenticato su WSO2');
               initialized = true;
-              // L'utente è autenticato su WSO2, ma non reindirizzare automaticamente
-              debugLog('Rilevata autenticazione WSO2, ma reindirizzamento automatico disabilitato');
               
               // FERMA il controllo periodico per evitare loop
               if (checkSessionInterval) {
@@ -194,6 +192,10 @@
                 checkSessionInterval = null;
                 debugLog('Controllo periodico checksession fermato');
               }
+              
+              // L'utente è autenticato su WSO2, reindirizza al login automatico
+              debugLog('Utente autenticato su WSO2 - avvio login automatico su Drupal');
+              redirectToLogin();
             } else if (message === 'error') {
               debugLog('Stato sessione: errore');
               initialized = true;
@@ -336,7 +338,8 @@
                       if (payload.nonce === savedNonce) {
                         debugLog('Nonce verificato correttamente');
                         localStorage.removeItem('wso2_auth_nonce'); // Pulisci il nonce
-                        debugLog('Rilevata autenticazione WSO2 (iframe), ma reindirizzamento automatico disabilitato');
+                        debugLog('Utente autenticato su WSO2 (iframe) - avvio login automatico su Drupal');
+                        redirectToLogin();
                       } else {
                         console.error('Nonce non corrispondente, possibile attacco replay');
                       }
@@ -399,7 +402,8 @@
                     if (payload.nonce === savedNonce) {
                       debugLog('Nonce verificato correttamente');
                       localStorage.removeItem('wso2_auth_nonce'); // Pulisci il nonce
-                      debugLog('Rilevata autenticazione WSO2 (messaggio), ma reindirizzamento automatico disabilitato');
+                      debugLog('Utente autenticato su WSO2 (messaggio) - avvio login automatico su Drupal');
+                      redirectToLogin();
                     } else {
                       console.error('Nonce non corrispondente, possibile attacco replay');
                     }
