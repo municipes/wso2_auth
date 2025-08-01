@@ -1,13 +1,13 @@
 /**
- * Implementazione WSO2 CheckSession che FUNZIONA
- * Basata sui risultati dei test
+ * Implementazione corretta WSO2 con verifica reale autenticazione
+ * "unchanged" non significa autenticato - significa solo session_state valido
  */
 (function (Drupal, drupalSettings, once) {
   'use strict';
 
-  Drupal.behaviors.wso2AuthCheckWorking = {
+  Drupal.behaviors.wso2AuthCheckFixed = {
     attach: function (context, settings) {
-      once('wso2-auth-check-working', 'body', context).forEach(function (element) {
+      once('wso2-auth-check-fixed', 'body', context).forEach(function (element) {
 
         const debugLog = function(message, data) {
           if (idpConfig.debug) {
@@ -16,7 +16,7 @@
         };
 
         const idpConfig = drupalSettings.wso2AuthCheck || {};
-        debugLog('🚀 WSO2 CheckSession inizializzato');
+        debugLog('🚀 WSO2 CheckSession inizializzato (logica corretta)');
 
         // Skip se utente già loggato
         if (drupalSettings.user && drupalSettings.user.uid > 0) {
@@ -24,7 +24,7 @@
           return;
         }
 
-        // Controllo intervallo per evitare spam
+        // Controllo intervallo
         const lastCheck = localStorage.getItem('wso2_auth_last_check');
         if (lastCheck) {
           const timeDiff = Date.now() - parseInt(lastCheck);
@@ -47,20 +47,10 @@
           return;
         }
 
-        // URL iframe con parametri (formato WSO2)
-        const iframeUrl = `${checkSessionUrl}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}`;
-        debugLog('🔗 URL iframe:', iframeUrl);
-
-        // Variabili stato
-        let sessionState = null;
-        let checkAttempts = 0;
-        let maxAttempts = 3;
-
         // Funzione reindirizzamento
         const redirectToLogin = function() {
           debugLog('🎯 Avvio reindirizzamento per login automatico');
 
-          // Aggiorna timestamp
           localStorage.setItem('wso2_auth_last_check', Date.now().toString());
           localStorage.removeItem('wso2_auth_not_authenticated');
 
@@ -68,7 +58,7 @@
           const loginUrl = (idpConfig.loginPath || '/wso2-auth/authorize/citizen') +
                           '?destinazione=' + encodeURIComponent(currentPath);
 
-          // Mostra notifica elegante
+          // Notifica utente
           const notification = document.createElement('div');
           notification.style.cssText = `
             position: fixed; top: 0; left: 0; right: 0; z-index: 10000;
@@ -81,51 +71,47 @@
           notification.innerHTML = `
             <div style="max-width: 600px; margin: 0 auto;">
               <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">
-                🔐 Accesso rilevato
+                🔐 Sessione attiva rilevata
               </div>
               <div style="font-size: 14px; opacity: 0.9; margin-bottom: 15px;">
-                Sessione attiva trovata - reindirizzamento in corso...
+                Reindirizzamento per accesso automatico...
               </div>
               <a href="${loginUrl}" style="
                 color: white; text-decoration: none;
                 background: rgba(255,255,255,0.2);
                 padding: 8px 16px; border-radius: 4px;
                 border: 1px solid rgba(255,255,255,0.3);
-                font-size: 13px; transition: all 0.2s;
-              " onmouseover="this.style.background='rgba(255,255,255,0.3)'"
-                 onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-                Clicca qui se non vieni reindirizzato automaticamente →
-              </a>
+                font-size: 13px;
+              ">Clicca qui se non vieni reindirizzato →</a>
             </div>
           `;
 
           document.body.appendChild(notification);
 
-          // Reindirizzamento dopo breve pausa
           setTimeout(() => {
             debugLog('🚀 Esecuzione reindirizzamento:', loginUrl);
             try {
               window.top.location.href = loginUrl;
             } catch (e) {
-              debugLog('Fallback reindirizzamento');
               window.location.replace(loginUrl);
             }
-          }, 2000000000);
+          }, 2000);
         };
 
-        // Ottieni session_state iniziale con prompt=none
-        const getInitialSessionState = function() {
+        // VERIFICA REALE AUTENTICAZIONE (il punto chiave!)
+        const verifyActualAuthentication = function() {
           return new Promise((resolve, reject) => {
-            debugLog('🔍 Ottenimento session_state iniziale...');
+            debugLog('🔍 Verifica REALE autenticazione WSO2...');
 
             const authFrame = document.createElement('iframe');
             authFrame.style.display = 'none';
 
+            // Usa response_type=code (non id_token) per evitare problemi
             const authUrl = `https://id.055055.it:9443/oauth2/authorize?` +
               `response_type=code&client_id=${clientId}&` +
               `redirect_uri=${encodeURIComponent(redirectUri)}&` +
               `scope=openid&prompt=none&` +
-              `state=initial_${Date.now()}&` +
+              `state=verify_${Date.now()}&` +
               `nonce=${Math.random().toString(36).substr(2, 16)}`;
 
             authFrame.src = authUrl;
@@ -134,155 +120,190 @@
               if (document.body.contains(authFrame)) {
                 document.body.removeChild(authFrame);
               }
-              resolve(null); // Nessun session_state ottenuto
-            }, 8000);
+              debugLog('⏰ Timeout verifica autenticazione');
+              resolve({ authenticated: false, reason: 'timeout' });
+            }, 10000);
 
             authFrame.onload = function() {
               try {
                 const frameUrl = authFrame.contentWindow.location.href;
-                const urlParams = new URLSearchParams(frameUrl.split('?')[1] || frameUrl.split('#')[1]);
-                const foundSessionState = urlParams.get('session_state');
+                debugLog('🔗 URL frame autenticazione:', frameUrl);
 
                 clearTimeout(timeout);
                 if (document.body.contains(authFrame)) {
                   document.body.removeChild(authFrame);
                 }
 
-                if (foundSessionState) {
-                  debugLog('✅ Session state ottenuto:', foundSessionState.substring(0, 20) + '...');
-                  resolve(foundSessionState);
+                if (frameUrl.includes('code=')) {
+                  // SUCCESS: Utente autenticato, authorization code ricevuto
+                  const urlParams = new URLSearchParams(frameUrl.split('?')[1] || frameUrl.split('#')[1]);
+                  const authCode = urlParams.get('code');
+                  const sessionState = urlParams.get('session_state');
+
+                  debugLog('✅ UTENTE AUTENTICATO - Authorization code ricevuto');
+                  debugLog('🔑 Auth code:', authCode ? authCode.substring(0, 20) + '...' : 'Non trovato');
+                  debugLog('🎫 Session state:', sessionState ? sessionState.substring(0, 20) + '...' : 'Non trovato');
+
+                  resolve({
+                    authenticated: true,
+                    authCode: authCode,
+                    sessionState: sessionState,
+                    reason: 'authorization_code_received'
+                  });
+
+                } else if (frameUrl.includes('error=login_required') ||
+                           frameUrl.includes('error=interaction_required')) {
+                  // Utente NON autenticato
+                  debugLog('❌ Utente NON autenticato (login_required)');
+                  resolve({ authenticated: false, reason: 'login_required' });
+
+                } else if (frameUrl.includes('error=')) {
+                  // Altri errori
+                  const urlParams = new URLSearchParams(frameUrl.split('?')[1] || frameUrl.split('#')[1]);
+                  const error = urlParams.get('error');
+                  const errorDesc = urlParams.get('error_description');
+
+                  debugLog('⚠️ Errore autenticazione:', error, errorDesc);
+                  resolve({ authenticated: false, reason: error, description: errorDesc });
+
                 } else {
-                  debugLog('⚠️ Nessun session_state nell\'URL');
-                  resolve(null);
+                  // URL non riconosciuto
+                  debugLog('🤔 URL non riconosciuto:', frameUrl);
+                  resolve({ authenticated: false, reason: 'unknown_response' });
                 }
 
               } catch (e) {
-                // Cross-origin - normale
+                // Cross-origin - non possiamo leggere l'URL
+                debugLog('🔒 Cross-origin - impossibile leggere URL frame');
+
                 clearTimeout(timeout);
                 if (document.body.contains(authFrame)) {
                   document.body.removeChild(authFrame);
                 }
-                resolve(null);
+
+                // In caso di cross-origin, assumiamo non autenticato per sicurezza
+                resolve({ authenticated: false, reason: 'cross_origin_blocked' });
               }
+            };
+
+            authFrame.onerror = function() {
+              clearTimeout(timeout);
+              if (document.body.contains(authFrame)) {
+                document.body.removeChild(authFrame);
+              }
+              debugLog('❌ Errore caricamento frame autenticazione');
+              resolve({ authenticated: false, reason: 'frame_load_error' });
             };
 
             document.body.appendChild(authFrame);
           });
         };
 
-        // Test checksession con session_state
-        const testCheckSession = function(testSessionState) {
-          return new Promise((resolve, reject) => {
-            debugLog('🧪 Test checksession con session_state...');
+        // LOGICA PRINCIPALE CORRETTA
+        const executeAuthCheck = async function() {
+          try {
+            debugLog('🎯 Avvio controllo autenticazione WSO2...');
 
-            const testFrame = document.createElement('iframe');
-            testFrame.style.display = 'none';
-            testFrame.src = iframeUrl;
+            // STEP 1: Verifica REALE autenticazione (non checksession)
+            const authResult = await verifyActualAuthentication();
 
-            const messageHandler = function(event) {
-              if (event.origin !== 'https://id.055055.it:9443') return;
-              if (event.source !== testFrame.contentWindow) return;
+            debugLog('📊 Risultato verifica autenticazione:', authResult);
 
-              debugLog('📨 Risposta checksession test:', event.data);
+            if (authResult.authenticated) {
+              // UTENTE REALMENTE AUTENTICATO
+              debugLog('🎉 CONFERMA: Utente autenticato su WSO2');
+              debugLog('   Motivo:', authResult.reason);
 
-              window.removeEventListener('message', messageHandler);
-              if (document.body.contains(testFrame)) {
-                document.body.removeChild(testFrame);
+              // Salva session state se presente
+              if (authResult.sessionState) {
+                localStorage.setItem('wso2_session_state', authResult.sessionState);
               }
 
-              resolve(event.data);
-            };
-
-            window.addEventListener('message', messageHandler);
-
-            testFrame.onload = function() {
-              setTimeout(() => {
-                const message = testSessionState ?
-                  `${clientId} ${testSessionState}` :
-                  `${clientId} `;
-
-                debugLog('📤 Invio messaggio test:', message);
-                testFrame.contentWindow.postMessage(message, 'https://id.055055.it:9443');
-
-                // Timeout sicurezza
-                setTimeout(() => {
-                  window.removeEventListener('message', messageHandler);
-                  if (document.body.contains(testFrame)) {
-                    document.body.removeChild(testFrame);
-                    resolve('timeout');
-                  }
-                }, 5000);
-              }, 1000);
-            };
-
-            document.body.appendChild(testFrame);
-          });
-        };
-
-        // Sequenza principale
-        const executeCheck = async function() {
-          try {
-            debugLog('🎯 Avvio sequenza controllo WSO2...');
-
-            // Step 1: Ottieni session_state
-            sessionState = await getInitialSessionState();
-
-            if (!sessionState) {
-              debugLog('❌ Nessun session_state ottenuto - utente non autenticato');
-              localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
-              localStorage.setItem('wso2_auth_last_check', Date.now().toString());
-              return;
-            }
-
-            // Step 2: Test checksession
-            const checkResult = await testCheckSession(sessionState);
-
-            // Step 3: Interpreta risultato
-            if (checkResult === 'unchanged') {
-              debugLog('🎉 SESSIONE WSO2 ATTIVA - Reindirizzamento!');
+              // REINDIRIZZA per login automatico
               redirectToLogin();
 
-            } else if (checkResult === 'changed') {
-              debugLog('⚠️ Session state cambiato - verifica aggiuntiva necessaria');
-
-              // Riprova senza session_state per vedere se è un problema di formato
-              const recheckResult = await testCheckSession(null);
-
-              if (recheckResult === 'error') {
-                debugLog('❌ Utente non autenticato (conferma)');
-                localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
-              } else {
-                debugLog('🤔 Risultato incerto - assumo non autenticato');
-                localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
-              }
-
-            } else if (checkResult === 'error') {
-              debugLog('❌ Errore checksession - utente non autenticato');
-              localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
-
             } else {
-              debugLog('🤷 Risposta non riconosciuta:', checkResult);
+              // UTENTE NON AUTENTICATO
+              debugLog('❌ CONFERMA: Utente NON autenticato su WSO2');
+              debugLog('   Motivo:', authResult.reason);
+              debugLog('   Descrizione:', authResult.description || 'N/A');
+
+              // Segna come non autenticato
               localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+              localStorage.setItem('wso2_auth_last_check', Date.now().toString());
+
+              debugLog('✅ Controllo completato - nessuna azione richiesta');
             }
 
-            localStorage.setItem('wso2_auth_last_check', Date.now().toString());
-
           } catch (error) {
-            debugLog('❌ Errore durante controllo:', error.message);
+            debugLog('❌ Errore durante controllo autenticazione:', error.message);
             localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
             localStorage.setItem('wso2_auth_last_check', Date.now().toString());
           }
         };
 
-        // Avvia controllo
-        debugLog('🚀 Avvio controllo autenticazione WSO2...');
-        executeCheck();
+        // CONTROLLO OPZIONALE CHECKSESSION (per monitoraggio continuo)
+        const monitorSessionChanges = function() {
+          // Questo è utile DOPO aver confermato l'autenticazione
+          // per monitorare cambiamenti di sessione
+          const sessionState = localStorage.getItem('wso2_session_state');
+
+          if (!sessionState) {
+            debugLog('⚠️ Nessun session_state salvato - skip monitoraggio');
+            return;
+          }
+
+          debugLog('👁️ Avvio monitoraggio cambiamenti sessione...');
+
+          const iframeUrl = `${checkSessionUrl}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+          const monitorFrame = document.createElement('iframe');
+          monitorFrame.style.display = 'none';
+          monitorFrame.src = iframeUrl;
+
+          const messageHandler = function(event) {
+            if (event.origin !== 'https://id.055055.it:9443') return;
+            if (event.source !== monitorFrame.contentWindow) return;
+
+            debugLog('📨 Monitoraggio sessione:', event.data);
+
+            if (event.data === 'changed') {
+              debugLog('⚠️ Session state cambiato - riverifica autenticazione');
+              // Riavvia controllo completo
+              executeAuthCheck();
+            }
+          };
+
+          window.addEventListener('message', messageHandler);
+
+          monitorFrame.onload = function() {
+            const checkInterval = setInterval(() => {
+              const message = `${clientId} ${sessionState}`;
+              monitorFrame.contentWindow.postMessage(message, 'https://id.055055.it:9443');
+            }, 30000); // Controlla ogni 30 secondi
+
+            // Cleanup dopo 5 minuti
+            setTimeout(() => {
+              clearInterval(checkInterval);
+              window.removeEventListener('message', messageHandler);
+              if (document.body.contains(monitorFrame)) {
+                document.body.removeChild(monitorFrame);
+              }
+            }, 300000);
+          };
+
+          document.body.appendChild(monitorFrame);
+        };
+
+        // AVVIA CONTROLLO PRINCIPALE
+        debugLog('🚀 Avvio sequenza controllo corretta...');
+        executeAuthCheck();
 
         // Debug helpers
         if (idpConfig.debug) {
-          window.wso2ForceCheck = executeCheck;
+          window.wso2ForceAuthCheck = executeAuthCheck;
           window.wso2ForceLogin = redirectToLogin;
-          debugLog('🔧 Debug: wso2ForceCheck(), wso2ForceLogin()');
+          window.wso2StartMonitoring = monitorSessionChanges;
+          debugLog('🔧 Debug: wso2ForceAuthCheck(), wso2ForceLogin(), wso2StartMonitoring()');
         }
 
       });
