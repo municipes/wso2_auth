@@ -36,28 +36,85 @@
           return;
         }
 
-        // Controllo intervallo
+        // DEBUG: Mostra configurazione intervallo
+        if (config.debug) {
+          console.group('⚙️ WSO2 Auth Check - Configurazione Intervallo');
+          console.log('📊 Intervallo configurato:', config.checkInterval, 'minuti');
+          console.log('📊 Equivale a:', (parseFloat(config.checkInterval) || 0.5) * 60 * 1000, 'millisecondi');
+          console.groupEnd();
+        }
+
+        // Controllo intervallo con debug dettagliato
         const lastCheck = localStorage.getItem('wso2_auth_last_check');
+        const intervalMinutes = parseFloat(config.checkInterval) || 0.5;
+        const intervalMs = intervalMinutes * 60 * 1000;
+
         if (lastCheck) {
-          const timeDiff = Date.now() - parseInt(lastCheck);
-          const intervalMs = (parseFloat(config.checkInterval) || 3) * 60 * 1000;
+          const lastCheckTime = parseInt(lastCheck);
+          const timeDiff = Date.now() - lastCheckTime;
+          const nextCheckTime = lastCheckTime + intervalMs;
+          const timeUntilNext = nextCheckTime - Date.now();
+
+          if (config.debug) {
+            console.group('🕐 WSO2 Auth Check - Analisi Timing');
+            console.log('📅 Ultimo controllo:', new Date(lastCheckTime).toLocaleString());
+            console.log('📅 Prossimo controllo:', new Date(nextCheckTime).toLocaleString());
+            console.log('⏱️ Tempo trascorso:', Math.round(timeDiff / 1000), 'secondi');
+            console.log('⏱️ Tempo rimanente:', Math.round(timeUntilNext / 1000), 'secondi');
+            console.log('✅ Controllo necessario?', timeDiff >= intervalMs ? 'SÌ' : 'NO');
+            console.groupEnd();
+          }
 
           if (timeDiff < intervalMs) {
-            const remainingMin = Math.ceil((intervalMs - timeDiff) / 60000);
-            debugLog(`⏳ Skip controllo - prossimo tra ${remainingMin} minuti`);
+            const remainingMin = Math.ceil(timeUntilNext / 60000);
+            const remainingSec = Math.ceil(timeUntilNext / 1000);
+
+            if (config.debug) {
+              debugLog(`⏳ Skip controllo - prossimo tra ${remainingMin} minuti (${remainingSec} secondi)`);
+              debugLog(`📍 Orario prossimo controllo: ${new Date(nextCheckTime).toLocaleTimeString()}`);
+            } else {
+              debugLog(`⏳ Skip controllo - prossimo tra ${remainingMin} minuti`);
+            }
             return;
+          } else {
+            debugLog('✅ Intervallo scaduto - procedo con il controllo');
           }
+        } else {
+          debugLog('🆕 Primo controllo - nessun timestamp precedente trovato');
         }
 
         // Controllo se l'ultimo controllo ha fallito di recente
         const lastFailure = localStorage.getItem('wso2_auth_not_authenticated');
         if (lastFailure) {
-          const failureAge = Date.now() - parseInt(lastFailure);
+          const failureTime = parseInt(lastFailure);
+          const failureAge = Date.now() - failureTime;
           const failureCooldown = 10 * 60 * 1000; // 10 minuti
+          const failureCooldownEnd = failureTime + failureCooldown;
+          const timeUntilCooldownEnd = failureCooldownEnd - Date.now();
+
+          if (config.debug) {
+            console.group('❌ WSO2 Auth Check - Analisi Fallimenti');
+            console.log('📅 Ultimo fallimento:', new Date(failureTime).toLocaleString());
+            console.log('📅 Fine cooldown:', new Date(failureCooldownEnd).toLocaleString());
+            console.log('⏱️ Età fallimento:', Math.round(failureAge / 1000), 'secondi');
+            console.log('⏱️ Tempo fino a fine cooldown:', Math.round(timeUntilCooldownEnd / 1000), 'secondi');
+            console.log('✅ Cooldown scaduto?', failureAge >= failureCooldown ? 'SÌ' : 'NO');
+            console.groupEnd();
+          }
 
           if (failureAge < failureCooldown) {
-            debugLog('❌ Skip controllo - fallimento recente');
+            const cooldownMin = Math.ceil(timeUntilCooldownEnd / 60000);
+            const cooldownSec = Math.ceil(timeUntilCooldownEnd / 1000);
+
+            if (config.debug) {
+              debugLog(`❌ Skip controllo - cooldown fallimento attivo per altri ${cooldownMin} minuti (${cooldownSec} secondi)`);
+              debugLog(`📍 Fine cooldown: ${new Date(failureCooldownEnd).toLocaleTimeString()}`);
+            } else {
+              debugLog('❌ Skip controllo - fallimento recente');
+            }
             return;
+          } else {
+            debugLog('✅ Cooldown fallimento scaduto - procedo con il controllo');
           }
         }
 
@@ -325,12 +382,59 @@
           }, 3000);
         });
 
-        // Helper debug
+        // Helper debug avanzati
         if (config.debug) {
           window.wso2ForceAuthCheck = executeAuthCheck;
           window.wso2TestProbe = executeSSOProbe;
           window.wso2Config = config;
+
+          // Helper per controllare timing
+          window.wso2ShowTiming = function() {
+            const lastCheck = localStorage.getItem('wso2_auth_last_check');
+            const lastFailure = localStorage.getItem('wso2_auth_not_authenticated');
+            const intervalMs = (parseFloat(config.checkInterval) || 0.5) * 60 * 1000;
+
+            console.group('🕐 WSO2 Timing Status');
+
+            if (lastCheck) {
+              const lastCheckTime = parseInt(lastCheck);
+              const nextCheckTime = lastCheckTime + intervalMs;
+              const timeUntilNext = nextCheckTime - Date.now();
+
+              console.log('📅 Ultimo controllo:', new Date(lastCheckTime).toLocaleString());
+              console.log('📅 Prossimo controllo:', new Date(nextCheckTime).toLocaleString());
+              console.log('⏱️ Tempo fino al prossimo:', Math.round(timeUntilNext / 1000), 'secondi');
+              console.log('✅ Controllo necessario ora?', timeUntilNext <= 0 ? 'SÌ' : 'NO');
+            } else {
+              console.log('🆕 Nessun controllo precedente registrato');
+            }
+
+            if (lastFailure) {
+              const failureTime = parseInt(lastFailure);
+              const failureCooldownEnd = failureTime + (10 * 60 * 1000);
+              const timeUntilCooldownEnd = failureCooldownEnd - Date.now();
+
+              console.log('❌ Ultimo fallimento:', new Date(failureTime).toLocaleString());
+              console.log('❌ Fine cooldown:', new Date(failureCooldownEnd).toLocaleString());
+              console.log('⏱️ Tempo fino a fine cooldown:', Math.round(timeUntilCooldownEnd / 1000), 'secondi');
+              console.log('✅ Cooldown scaduto?', timeUntilCooldownEnd <= 0 ? 'SÌ' : 'NO');
+            } else {
+              console.log('✅ Nessun fallimento registrato');
+            }
+
+            console.groupEnd();
+          };
+
+          // Helper per resettare timing
+          window.wso2ResetTiming = function() {
+            localStorage.removeItem('wso2_auth_last_check');
+            localStorage.removeItem('wso2_auth_not_authenticated');
+            localStorage.removeItem('wso2_auth_check_triggered');
+            console.log('🔄 Timing reset completato - prossimo controllo sarà immediato');
+          };
+
           debugLog('🔧 Debug: wso2ForceAuthCheck(), wso2TestProbe(), wso2Config');
+          debugLog('🔧 Timing: wso2ShowTiming(), wso2ResetTiming()');
         }
 
       });
