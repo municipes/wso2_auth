@@ -416,13 +416,12 @@
             }
           }, 2000);
 
-          // Backup immediato dopo 1 secondo (per testing)
+          // Backup immediato senza delay (per testing)
           if (config.debug) {
-            setTimeout(() => {
-              debugLog('🔧 DEBUG: Attivazione immediata per test');
-              clearInterval(fallbackInterval);
-              initializeAuthCheck();
-            }, 1000);
+            debugLog('🔧 DEBUG: Attivazione immediata per test');
+            clearInterval(fallbackInterval);
+            initializeAuthCheck();
+            // Nessun setTimeout - esecuzione immediata
           }
         };
 
