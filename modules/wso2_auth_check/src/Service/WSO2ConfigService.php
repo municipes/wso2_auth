@@ -115,7 +115,7 @@ class WSO2ConfigService {
       'clientId' => '',
       'redirectUri' => \Drupal::request()->getSchemeAndHttpHost() . '/sso/probe-callback',
       'loginPath' => '',  // Sarà impostato in base al modulo attivo
-      'checkInterval' => $check_config->get('check_interval') ?? 3,
+      'checkInterval' => $check_config->get('check_interval') ?? 0.5,
       'debug' => $this->isDebugEnabled(),
     ];
 

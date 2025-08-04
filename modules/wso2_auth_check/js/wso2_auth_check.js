@@ -1,6 +1,6 @@
 /**
  * WSO2 Auth Check - Implementazione con popup invisibile
- * Basato su pattern produzione usato da Google, Microsoft, Auth0
+ * Rileva sessioni WSO2 attive e reindirizza all'endpoint Drupal per login automatico
  */
 (function (Drupal, drupalSettings, once) {
   'use strict';
@@ -53,7 +53,7 @@
         const lastFailure = localStorage.getItem('wso2_auth_not_authenticated');
         if (lastFailure) {
           const failureAge = Date.now() - parseInt(lastFailure);
-          const failureCooldown = 1 * 60 * 1000; // 1 minuti
+          const failureCooldown = 10 * 60 * 1000; // 10 minuti
 
           if (failureAge < failureCooldown) {
             debugLog('❌ Skip controllo - fallimento recente');
@@ -64,52 +64,52 @@
         /**
          * Esegue il probe SSO silenzioso usando popup invisibile
          */
-        const executeSSOProbe = async function() {
-        return new Promise(async (resolve, reject) => {
-          debugLog('🔍 Avvio SSO probe con popup invisibile...');
+        const executeSSOProbe = function() {
+          return new Promise((resolve, reject) => {
+            debugLog('🔍 Avvio SSO probe con popup invisibile...');
 
-          // 1. Costruisci URL di autorizzazione silenziosa
-          const authUrl = new URL('/oauth2/authorize', config.idpUrl.replace('/oauth2/authorize', ''));
-          const state = crypto.randomUUID ? crypto.randomUUID() : 'probe_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-          const nonce = crypto.randomUUID ? crypto.randomUUID() : 'nonce_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            // 1. Costruisci URL di autorizzazione silenziosa
+            const authUrl = new URL('/oauth2/authorize', config.idpUrl.replace('/oauth2/authorize', ''));
+            const state = crypto.randomUUID ? crypto.randomUUID() : 'probe_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const nonce = crypto.randomUUID ? crypto.randomUUID() : 'nonce_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
-          authUrl.search = new URLSearchParams({
-            response_type: 'code',
-            client_id: config.clientId,
-            redirect_uri: config.redirectUri,
-            scope: 'openid',
-            prompt: 'none',
-            state: state,
-            nonce: nonce
-          }).toString();
+            authUrl.search = new URLSearchParams({
+              response_type: 'code',
+              client_id: config.clientId,
+              redirect_uri: config.redirectUri,
+              scope: 'openid',
+              prompt: 'none',
+              state: state,
+              nonce: nonce
+            }).toString();
 
-          debugLog('🔗 URL probe:', authUrl.toString());
+            debugLog('🔗 URL probe:', authUrl.toString());
 
-          // Debug delay per permettere lettura del log
-          // if (config.debug) {
-             // Log strutturato e colorato
-              // console.group('🔍 WSO2 Auth Check - Debug Session');
-              // console.log('%c🔗 URL Authorization:', 'color: #2196F3; font-weight: bold;');
-              // console.log(authUrl.toString());
-              // console.log('%c🆔 State:', 'color: #4CAF50; font-weight: bold;', state);
-              // console.log('%c🔢 Nonce:', 'color: #FF9800; font-weight: bold;', nonce);
-              // console.log('%c⚙️ Config:', 'color: #9C27B0; font-weight: bold;', config);
-              // console.groupEnd();
+            // Debug stop - ferma l'esecuzione per analisi log
+            if (config.debug) {
+              // Super log dettagliato
+              console.group('🔍 WSO2 Debug Info');
+              console.log('%c🔗 URL Authorization:', 'color: #2196F3; font-weight: bold;');
+              console.log(authUrl.toString());
+              console.log('%c🆔 State:', 'color: #4CAF50; font-weight: bold;', state);
+              console.log('%c🔢 Nonce:', 'color: #FF9800; font-weight: bold;', nonce);
+              console.log('%c⚙️ Config:', 'color: #9C27B0; font-weight: bold;', config);
+              console.groupEnd();
 
-              // // Ferma con conferma utente
-              // const shouldContinue = confirm('🛑 DEBUG MODE\n\nHai visto i log nella console?\n\nClicca OK per continuare con il popup, Annulla per fermare.');
+              // Ferma con conferma utente
+              const shouldContinue = confirm('🛑 DEBUG MODE\n\nHai visto i log nella console?\n\nClicca OK per continuare con il popup, Annulla per fermare.');
 
-              // if (!shouldContinue) {
-              //   debugLog('❌ Debug session terminata dall\'utente');
-              //   return; // FERMA TUTTO
-              // }
+              if (!shouldContinue) {
+                debugLog('❌ Debug session terminata dall\'utente');
+                return; // FERMA TUTTO
+              }
 
-              // debugLog('✅ Continuazione autorizzata - apertura popup...');
-          // }
+              debugLog('✅ Continuazione autorizzata - apertura popup...');
+            }
 
-          // 2. Apri popup invisibile (0x0 pixel)
-          const popup = window.open(
-            authUrl.toString(),
+            // 2. Apri popup invisibile (0x0 pixel)
+            const popup = window.open(
+              authUrl.toString(),
               'wso2_sso_probe',
               'left=-1000,top=-1000,width=0,height=0,menubar=no,toolbar=no,resizable=no,noopener,noreferrer'
             );
@@ -123,7 +123,9 @@
             // 3. Timeout di sicurezza
             const timeout = setTimeout(() => {
               debugLog('⏰ Timeout popup probe');
-              popup.close();
+              if (popup && !popup.closed) {
+                popup.close();
+              }
               reject(new Error('Popup timeout'));
             }, 10000);
 
@@ -194,61 +196,10 @@
         };
 
         /**
-         * Scambia il codice di autorizzazione con il backend Drupal
+         * Reindirizza l'utente all'endpoint di autenticazione Drupal
          */
-        const exchangeCodeWithBackend = function(code, state) {
-          debugLog('🔄 Scambio codice con backend...');
-
-          return fetch('/sso/exchange', {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({
-              code: code,
-              state: state,
-              csrf_token: config.csrfToken
-            })
-          })
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('HTTP ' + response.status);
-            }
-            return response.json();
-          })
-          .then(data => {
-            debugLog('✅ Risposta backend:', data);
-
-            if (data.logged_in) {
-              // Login automatico riuscito
-              showSuccessNotification();
-
-              // Opzionale: ricarica la pagina per aggiornare l'UI
-              setTimeout(() => {
-                window.location.reload();
-              }, 1500);
-
-              return true;
-            } else {
-              debugLog('⚠️ Backend non ha confermato il login');
-              return false;
-            }
-          })
-          .catch(error => {
-            debugLog('❌ Errore scambio codice:', error.message);
-            // In caso di errore, prova il redirect manuale
-            redirectToManualLogin();
-            return false;
-          });
-        };
-
-        /**
-         * Reindirizzamento manuale come fallback
-         */
-        const redirectToManualLogin = function() {
-          debugLog('🎯 Fallback: reindirizzamento manuale');
+        const redirectToAuthEndpoint = function() {
+          debugLog('🎯 Reindirizzamento a endpoint autenticazione Drupal');
 
           const currentPath = window.location.pathname + window.location.search + window.location.hash;
           const loginUrl = (config.loginPath || '/wso2-auth/authorize/citizen') +
@@ -257,20 +208,24 @@
           showLoginNotification(loginUrl);
 
           setTimeout(() => {
-            debugLog('🚀 Esecuzione reindirizzamento manuale:', loginUrl);
-            window.location.href = loginUrl;
+            debugLog('🚀 Esecuzione reindirizzamento:', loginUrl);
+            try {
+              window.top.location.href = loginUrl;
+            } catch (e) {
+              window.location.replace(loginUrl);
+            }
           }, 2000);
         };
 
         /**
-         * Mostra notifica di successo
+         * Mostra notifica per login automatico
          */
-        const showSuccessNotification = function() {
+        const showLoginNotification = function(loginUrl) {
           const notification = document.createElement('div');
           notification.style.cssText = `
             position: fixed; top: 0; left: 0; right: 0; z-index: 10000;
             background: linear-gradient(135deg, #4CAF50, #45a049);
-            color: white; padding: 15px; text-align: center;
+            color: white; padding: 20px; text-align: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             transform: translateY(-100%); transition: transform 0.3s ease;
@@ -278,12 +233,19 @@
 
           notification.innerHTML = `
             <div style="max-width: 600px; margin: 0 auto;">
-              <div style="font-size: 16px; font-weight: 600;">
-                ✅ Accesso automatico completato
+              <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">
+                🔐 Sessione WSO2 attiva rilevata
               </div>
-              <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">
-                Aggiornamento della pagina in corso...
+              <div style="font-size: 14px; opacity: 0.9; margin-bottom: 15px;">
+                Reindirizzamento per accesso automatico...
               </div>
+              <a href="${loginUrl}" style="
+                color: white; text-decoration: none;
+                background: rgba(255,255,255,0.2);
+                padding: 8px 16px; border-radius: 4px;
+                border: 1px solid rgba(255,255,255,0.3);
+                font-size: 13px;
+              ">Clicca qui se non vieni reindirizzato →</a>
             </div>
           `;
 
@@ -304,45 +266,11 @@
                 }
               }, 300);
             }
-          }, 3000);
+          }, 8000);
         };
 
         /**
-         * Mostra notifica per login manuale
-         */
-        const showLoginNotification = function(loginUrl) {
-          const notification = document.createElement('div');
-          notification.style.cssText = `
-            position: fixed; top: 0; left: 0; right: 0; z-index: 10000;
-            background: linear-gradient(135deg, #2196F3, #1976D2);
-            color: white; padding: 20px; text-align: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          `;
-
-          notification.innerHTML = `
-            <div style="max-width: 600px; margin: 0 auto;">
-              <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">
-                🔐 Sessione attiva rilevata
-              </div>
-              <div style="font-size: 14px; opacity: 0.9; margin-bottom: 15px;">
-                Reindirizzamento per accesso automatico...
-              </div>
-              <a href="${loginUrl}" style="
-                color: white; text-decoration: none;
-                background: rgba(255,255,255,0.2);
-                padding: 8px 16px; border-radius: 4px;
-                border: 1px solid rgba(255,255,255,0.3);
-                font-size: 13px;
-              ">Clicca qui se non vieni reindirizzato →</a>
-            </div>
-          `;
-
-          document.body.appendChild(notification);
-        };
-
-        /**
-         * Logica principale
+         * Logica principale semplificata
          */
         const executeAuthCheck = async function() {
           try {
@@ -352,13 +280,11 @@
             debugLog('📊 Risultato probe:', result);
 
             if (result.authenticated && result.code) {
-              // Utente autenticato - scambia il codice
-              const exchangeSuccess = await exchangeCodeWithBackend(result.code, result.state);
+              // Utente autenticato - reindirizza all'endpoint Drupal
+              debugLog('🎉 CONFERMA: Utente autenticato su WSO2');
+              debugLog('   Codice autorizzazione ricevuto, reindirizzamento...');
 
-              if (!exchangeSuccess) {
-                debugLog('⚠️ Scambio codice fallito, provo redirect manuale');
-                redirectToManualLogin();
-              }
+              redirectToAuthEndpoint();
             } else {
               // Utente non autenticato
               debugLog('❌ Utente non autenticato:', result.reason || 'unknown');
@@ -378,37 +304,33 @@
           executeAuthCheck();
         };
 
-        // Production-grade silent SSO probe (pattern da Google, Microsoft, Auth0)
-        const initializeSilentProbe = () => {
-          debugLog('📄 Inizializzazione silent SSO probe...');
-
+        // Avvia il controllo dopo la prima interazione utente
+        document.addEventListener('DOMContentLoaded', () => {
           if (document.hidden || document.visibilityState === 'prerender') {
             debugLog('📄 Pagina nascosta o prerender - skip controllo');
             return;
           }
 
           // Usa pointerdown per triggering rapido (prima del paint)
-          debugLog('👆 Attendo prima interazione utente per silent probe...');
-          document.addEventListener('pointerdown', () => {
-            debugLog('👆 Prima interazione rilevata - avvio silent probe');
-            executeAuthCheck();
-          }, { once: true });
-        };
+          document.addEventListener('pointerdown', initializeAuthCheck, { once: true });
+          document.addEventListener('click', initializeAuthCheck, { once: true });
+          document.addEventListener('keydown', initializeAuthCheck, { once: true });
 
-        // Controlla se DOM è già carico
-        if (document.readyState === 'loading') {
-          debugLog('📄 DOM in caricamento - attendo DOMContentLoaded');
-          document.addEventListener('DOMContentLoaded', initializeSilentProbe);
-        } else {
-          debugLog('📄 DOM già carico - avvio immediato');
-          initializeSilentProbe();
-        }
+          // Fallback per dispositivi senza pointer events dopo 3 secondi
+          setTimeout(() => {
+            if (!localStorage.getItem('wso2_auth_check_triggered')) {
+              localStorage.setItem('wso2_auth_check_triggered', 'true');
+              initializeAuthCheck();
+            }
+          }, 3000);
+        });
 
         // Helper debug
         if (config.debug) {
           window.wso2ForceAuthCheck = executeAuthCheck;
           window.wso2TestProbe = executeSSOProbe;
-          debugLog('🔧 Debug: wso2ForceAuthCheck(), wso2TestProbe()');
+          window.wso2Config = config;
+          debugLog('🔧 Debug: wso2ForceAuthCheck(), wso2TestProbe(), wso2Config');
         }
 
       });

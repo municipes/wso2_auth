@@ -17,18 +17,6 @@ wso2_auth_check.probe_callback:
   options:
     no_cache: TRUE
 
-# Endpoint per scambio codice
-wso2_auth_check.exchange_code:
-  path: '/sso/exchange'
-  defaults:
-    _controller: '\Drupal\wso2_auth_check\Controller\WSO2AuthCheckController::exchangeCode'
-    _title: 'SSO Code Exchange'
-  requirements:
-    _access: 'TRUE'
-  methods: [POST]
-  options:
-    no_cache: TRUE
-
 # Callback legacy (per compatibilità)
 wso2_auth_check.callback:
   path: '/wso2-auth-callback'
