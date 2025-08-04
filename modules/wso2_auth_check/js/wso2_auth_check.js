@@ -461,7 +461,20 @@
         if (config.debug) {
           window.wso2ForceAuthCheck = function() {
             debugLog('🔧 Forzatura manuale controllo autenticazione');
-            executeAuthCheck();
+
+            // Apri popup per il test manuale
+            const popup = window.open(
+              'about:blank',
+              'wso2_sso_probe_manual',
+              'left=-1000,top=-1000,width=0,height=0,menubar=no,toolbar=no,resizable=no,noopener,noreferrer'
+            );
+
+            if (!popup) {
+              console.error('❌ Popup bloccato - prova a cliccare prima sulla pagina');
+              return;
+            }
+
+            executeAuthCheck(popup);
           };
 
           window.wso2TestProbe = executeSSOProbe;
