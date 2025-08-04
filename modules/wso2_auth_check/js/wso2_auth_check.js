@@ -416,13 +416,13 @@
             }
           }, 2000);
 
-          // Backup immediato senza delay (per testing)
-          if (config.debug) {
-            debugLog('🔧 DEBUG: Attivazione immediata per test');
-            clearInterval(fallbackInterval);
-            initializeAuthCheck();
-            // Nessun setTimeout - esecuzione immediata
-          }
+          // Backup immediato senza delay (per testing) - DISABILITATO per evitare popup block
+          // if (config.debug) {
+          //   debugLog('🔧 DEBUG: Attivazione immediata per test');
+          //   clearInterval(fallbackInterval);
+          //   initializeAuthCheck();
+          //   // Nessun setTimeout - esecuzione immediata
+          // }
         };
 
         // Avvia il setup
