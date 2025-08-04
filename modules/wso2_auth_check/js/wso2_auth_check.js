@@ -64,40 +64,40 @@
         /**
          * Esegue il probe SSO silenzioso usando popup invisibile
          */
-        const executeSSOProbe = function() {
-          return new Promise((resolve, reject) => {
-            debugLog('🔍 Avvio SSO probe con popup invisibile...');
+        const executeSSOProbe = async function() {
+        return new Promise(async (resolve, reject) => {
+          debugLog('🔍 Avvio SSO probe con popup invisibile...');
 
-            // 1. Costruisci URL di autorizzazione silenziosa
-            const authUrl = new URL('/oauth2/authorize', config.idpUrl.replace('/oauth2/authorize', ''));
-            const state = crypto.randomUUID ? crypto.randomUUID() : 'probe_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            const nonce = crypto.randomUUID ? crypto.randomUUID() : 'nonce_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+          // 1. Costruisci URL di autorizzazione silenziosa
+          const authUrl = new URL('/oauth2/authorize', config.idpUrl.replace('/oauth2/authorize', ''));
+          const state = crypto.randomUUID ? crypto.randomUUID() : 'probe_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+          const nonce = crypto.randomUUID ? crypto.randomUUID() : 'nonce_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
-            authUrl.search = new URLSearchParams({
-              response_type: 'code',
-              client_id: config.clientId,
-              redirect_uri: config.redirectUri,
-              scope: 'openid',
-              prompt: 'none',
-              state: state,
-              nonce: nonce
-            }).toString();
+          authUrl.search = new URLSearchParams({
+            response_type: 'code',
+            client_id: config.clientId,
+            redirect_uri: config.redirectUri,
+            scope: 'openid',
+            prompt: 'none',
+            state: state,
+            nonce: nonce
+          }).toString();
 
-            debugLog('🔗 URL probe:', authUrl.toString());
+          debugLog('🔗 URL probe:', authUrl.toString());
 
-            // Debug delay per permettere lettura del log
-            if (config.debug) {
-              debugLog('⏳ Debug delay attivo - attesa 5 secondi...');
-              await new Promise(resolve => setTimeout(resolve, 5000));
-              debugLog('✅ Debug delay completato - apertura popup');
-            }
+          // Debug delay per permettere lettura del log
+          if (config.debug) {
+            debugLog('⏳ Debug delay attivo - attesa 5 secondi...');
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            debugLog('✅ Debug delay completato - apertura popup');
+          }
 
-            // 2. Apri popup invisibile (0x0 pixel) - production pattern
-            const popup = window.open(
-              authUrl.toString(),
-              'wso2_sso_probe',
-              'left=-1000,top=-1000,width=0,height=0,menubar=no,toolbar=no,resizable=no,noopener,noreferrer'
-            );
+          // 2. Apri popup invisibile (0x0 pixel)
+          const popup = window.open(
+            authUrl.toString(),
+            'wso2_sso_probe',
+            'left=-1000,top=-1000,width=0,height=0,menubar=no,toolbar=no,resizable=no,noopener,noreferrer'
+          );
 
             if (!popup) {
               debugLog('❌ Popup bloccato dal browser');
