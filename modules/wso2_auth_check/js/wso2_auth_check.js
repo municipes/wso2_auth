@@ -110,6 +110,7 @@
               debugLog(`❌ Skip controllo - cooldown fallimento attivo per altri ${cooldownMin} minuti (${cooldownSec} secondi)`);
               debugLog(`📍 Fine cooldown: ${new Date(failureCooldownEnd).toLocaleTimeString()}`);
             } else {
+              console.log('Config debug? ', config.debug);
               debugLog('❌ Skip controllo - fallimento recente');
             }
             return;
