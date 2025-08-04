@@ -122,7 +122,7 @@
         /**
          * Esegue il probe SSO silenzioso usando popup invisibile
          */
-        const executeSSOProbe = function() {
+        const executeSSOProbe = function(preOpenedPopup) {
           return new Promise((resolve, reject) => {
             debugLog('🔍 Avvio SSO probe con popup invisibile...');
 
@@ -162,23 +162,29 @@
               //   return; // FERMA TUTTO
               // }
 
-              debugLog('✅ Continuazione autorizzata - apertura popup...');
+              debugLog('✅ Continuazione autorizzata - navigazione popup...');
             }
 
-            // 2. Apri popup invisibile (0x0 pixel)
-            const popup = window.open(
-              authUrl.toString(),
-              'wso2_sso_probe',
-              'left=-1000,top=-1000,width=0,height=0,menubar=no,toolbar=no,resizable=no,noopener,noreferrer'
-            );
-
-            if (!popup) {
-              debugLog('❌ Popup bloccato dal browser');
-              reject(new Error('Popup blocked'));
+            // 2. Usa popup pre-aperto
+            const popup = preOpenedPopup;
+            if (!popup || popup.closed) {
+              debugLog('❌ Popup non disponibile o già chiuso');
+              reject(new Error('Popup not available'));
               return;
             }
 
-            // 3. Timeout di sicurezza
+            // 3. Naviga il popup all'URL di autorizzazione
+            try {
+              popup.location.href = authUrl.toString();
+              debugLog('✅ Popup navigato all\'URL di autorizzazione');
+            } catch (e) {
+              debugLog('❌ Errore durante navigazione popup:', e.message);
+              popup.close();
+              reject(new Error('Navigation failed: ' + e.message));
+              return;
+            }
+
+            // 4. Timeout di sicurezza
             const timeout = setTimeout(() => {
               debugLog('⏰ Timeout popup probe');
               if (popup && !popup.closed) {
@@ -187,7 +193,7 @@
               reject(new Error('Popup timeout'));
             }, 10000);
 
-            // 4. Listener per il risultato
+            // 5. Listener per il risultato
             const onMessage = (event) => {
               // Verifica origine per sicurezza
               if (event.origin !== location.origin) {
@@ -239,7 +245,7 @@
 
             window.addEventListener('message', onMessage);
 
-            // 5. Controlla se il popup si è chiuso senza comunicare (utente ha chiuso o errore)
+            // 6. Controlla se il popup si è chiuso senza comunicare (utente ha chiuso o errore)
             const checkClosed = setInterval(() => {
               if (popup.closed) {
                 clearInterval(checkClosed);
@@ -330,11 +336,11 @@
         /**
          * Logica principale semplificata
          */
-        const executeAuthCheck = async function() {
+        const executeAuthCheck = async function(preOpenedPopup) {
           try {
             debugLog('🎯 Avvio controllo autenticazione WSO2...');
 
-            const result = await executeSSOProbe();
+            const result = await executeSSOProbe(preOpenedPopup);
             debugLog('📊 Risultato probe:', result);
 
             if (result.authenticated && result.code) {
@@ -367,7 +373,21 @@
           document.removeEventListener('touchstart', initializeAuthCheck);
           document.removeEventListener('scroll', initializeAuthCheck);
 
-          executeAuthCheck();
+          // IMPORTANTE: Apri il popup IMMEDIATAMENTE nell'event handler
+          // per evitare che il browser lo blocchi
+          const popup = window.open(
+            'about:blank',
+            'wso2_sso_probe',
+            'left=-1000,top=-1000,width=0,height=0,menubar=no,toolbar=no,resizable=no,noopener,noreferrer'
+          );
+
+          if (!popup) {
+            debugLog('❌ Popup bloccato dal browser durante interazione utente');
+            return;
+          }
+
+          debugLog('✅ Popup aperto durante interazione utente');
+          executeAuthCheck(popup);
         };
 
         // Logica di attivazione migliorata
