@@ -359,33 +359,83 @@
          */
         const initializeAuthCheck = function() {
           debugLog('👆 Interazione utente rilevata - avvio controllo');
+
+          // Rimuovi tutti gli event listener per evitare duplicati
+          document.removeEventListener('pointerdown', initializeAuthCheck);
+          document.removeEventListener('click', initializeAuthCheck);
+          document.removeEventListener('keydown', initializeAuthCheck);
+          document.removeEventListener('touchstart', initializeAuthCheck);
+          document.removeEventListener('scroll', initializeAuthCheck);
+
           executeAuthCheck();
         };
 
-        // Avvia il controllo dopo la prima interazione utente
-        document.addEventListener('DOMContentLoaded', () => {
+        // Logica di attivazione migliorata
+        const setupActivation = function() {
+          debugLog('🎯 Setup attivazione controllo autenticazione...');
+
+          // Controlla se il DOM è già caricato
+          if (document.readyState === 'loading') {
+            debugLog('📄 DOM in caricamento - attendo DOMContentLoaded');
+            document.addEventListener('DOMContentLoaded', setupActivation);
+            return;
+          }
+
+          // Controlla se la pagina è nascosta
           if (document.hidden || document.visibilityState === 'prerender') {
             debugLog('📄 Pagina nascosta o prerender - skip controllo');
             return;
           }
 
-          // Usa pointerdown per triggering rapido (prima del paint)
-          document.addEventListener('pointerdown', initializeAuthCheck, { once: true });
-          document.addEventListener('click', initializeAuthCheck, { once: true });
-          document.addEventListener('keydown', initializeAuthCheck, { once: true });
+          debugLog('✅ DOM pronto - configurazione event listeners');
 
-          // Fallback per dispositivi senza pointer events dopo 3 secondi
-          setTimeout(() => {
-            if (!localStorage.getItem('wso2_auth_check_triggered')) {
-              localStorage.setItem('wso2_auth_check_triggered', 'true');
+          // Event listeners per diverse interazioni
+          const events = ['pointerdown', 'click', 'keydown', 'touchstart', 'scroll'];
+          events.forEach(eventType => {
+            document.addEventListener(eventType, initializeAuthCheck, { once: true, passive: true });
+            debugLog(`📎 Event listener aggiunto: ${eventType}`);
+          });
+
+          // Fallback con timer più aggressivo
+          let fallbackCounter = 0;
+          const fallbackInterval = setInterval(() => {
+            fallbackCounter++;
+            debugLog(`⏰ Fallback timer #${fallbackCounter} (ogni 2 secondi)`);
+
+            // Prova ogni 2 secondi per 3 volte, poi ogni 10 secondi
+            if (fallbackCounter <= 3 || fallbackCounter % 5 === 0) {
+              debugLog('🚀 Attivazione fallback - esecuzione controllo');
+              clearInterval(fallbackInterval);
               initializeAuthCheck();
             }
-          }, 3000);
-        });
+
+            // Stop dopo 2 minuti
+            if (fallbackCounter >= 60) {
+              debugLog('⏰ Fallback timeout - stop tentativi');
+              clearInterval(fallbackInterval);
+            }
+          }, 2000);
+
+          // Backup immediato dopo 1 secondo (per testing)
+          if (config.debug) {
+            setTimeout(() => {
+              debugLog('🔧 DEBUG: Attivazione immediata per test');
+              clearInterval(fallbackInterval);
+              initializeAuthCheck();
+            }, 1000);
+          }
+        };
+
+        // Avvia il setup
+        setupActivation();
 
         // Helper debug avanzati
         if (config.debug) {
-          window.wso2ForceAuthCheck = executeAuthCheck;
+          window.wso2ForceAuthCheck = function() {
+            debugLog('🔧 Forzatura manuale controllo autenticazione');
+            executeAuthCheck();
+          };
+
           window.wso2TestProbe = executeSSOProbe;
           window.wso2Config = config;
 
@@ -430,12 +480,22 @@
           window.wso2ResetTiming = function() {
             localStorage.removeItem('wso2_auth_last_check');
             localStorage.removeItem('wso2_auth_not_authenticated');
-            localStorage.removeItem('wso2_auth_check_triggered');
             console.log('🔄 Timing reset completato - prossimo controllo sarà immediato');
+          };
+
+          // Helper per debug eventi
+          window.wso2DebugEvents = function() {
+            console.group('🎯 WSO2 Debug Eventi');
+            console.log('📄 Document readyState:', document.readyState);
+            console.log('👁️ Document hidden:', document.hidden);
+            console.log('👁️ Visibility state:', document.visibilityState);
+            console.log('🖱️ Event listeners attivi: pointerdown, click, keydown, touchstart, scroll');
+            console.groupEnd();
           };
 
           debugLog('🔧 Debug: wso2ForceAuthCheck(), wso2TestProbe(), wso2Config');
           debugLog('🔧 Timing: wso2ShowTiming(), wso2ResetTiming()');
+          debugLog('🔧 Eventi: wso2DebugEvents()');
         }
 
       });
