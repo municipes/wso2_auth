@@ -155,12 +155,12 @@
               console.groupEnd();
 
               // Ferma con conferma utente
-              const shouldContinue = confirm('🛑 DEBUG MODE\n\nHai visto i log nella console?\n\nClicca OK per continuare con il popup, Annulla per fermare.');
+              // const shouldContinue = confirm('🛑 DEBUG MODE\n\nHai visto i log nella console?\n\nClicca OK per continuare con il popup, Annulla per fermare.');
 
-              if (!shouldContinue) {
-                debugLog('❌ Debug session terminata dall\'utente');
-                return; // FERMA TUTTO
-              }
+              // if (!shouldContinue) {
+              //   debugLog('❌ Debug session terminata dall\'utente');
+              //   return; // FERMA TUTTO
+              // }
 
               debugLog('✅ Continuazione autorizzata - apertura popup...');
             }
