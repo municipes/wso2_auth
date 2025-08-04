@@ -87,9 +87,24 @@
 
           // Debug delay per permettere lettura del log
           // if (config.debug) {
-            debugLog('⏳ Debug delay attivo - attesa 15 secondi...');
-            await new Promise(resolve => setTimeout(resolve, 15000));
-            debugLog('✅ Debug delay completato - apertura popup');
+             // Log strutturato e colorato
+              console.group('🔍 WSO2 Auth Check - Debug Session');
+              console.log('%c🔗 URL Authorization:', 'color: #2196F3; font-weight: bold;');
+              console.log(authUrl.toString());
+              console.log('%c🆔 State:', 'color: #4CAF50; font-weight: bold;', state);
+              console.log('%c🔢 Nonce:', 'color: #FF9800; font-weight: bold;', nonce);
+              console.log('%c⚙️ Config:', 'color: #9C27B0; font-weight: bold;', config);
+              console.groupEnd();
+
+              // Ferma con conferma utente
+              const shouldContinue = confirm('🛑 DEBUG MODE\n\nHai visto i log nella console?\n\nClicca OK per continuare con il popup, Annulla per fermare.');
+
+              if (!shouldContinue) {
+                debugLog('❌ Debug session terminata dall\'utente');
+                return; // FERMA TUTTO
+              }
+
+              debugLog('✅ Continuazione autorizzata - apertura popup...');
           // }
 
           // 2. Apri popup invisibile (0x0 pixel)
