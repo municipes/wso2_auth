@@ -85,6 +85,13 @@
 
             debugLog('🔗 URL probe:', authUrl.toString());
 
+            // Debug delay per permettere lettura del log
+            if (config.debug) {
+              debugLog('⏳ Debug delay attivo - attesa 5 secondi...');
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              debugLog('✅ Debug delay completato - apertura popup');
+            }
+
             // 2. Apri popup invisibile (0x0 pixel) - production pattern
             const popup = window.open(
               authUrl.toString(),
@@ -359,7 +366,7 @@
         // Production-grade silent SSO probe (pattern da Google, Microsoft, Auth0)
         const initializeSilentProbe = () => {
           debugLog('📄 Inizializzazione silent SSO probe...');
-          
+
           if (document.hidden || document.visibilityState === 'prerender') {
             debugLog('📄 Pagina nascosta o prerender - skip controllo');
             return;
