@@ -410,10 +410,19 @@
           debugLog('✅ DOM pronto - configurazione event listeners');
 
           // Event listeners per diverse interazioni
-          const events = ['pointerdown', 'click', 'keydown', 'touchstart', 'scroll'];
-          events.forEach(eventType => {
-            document.addEventListener(eventType, initializeAuthCheck, { once: true, passive: true });
-            debugLog(`📎 Event listener aggiunto: ${eventType}`);
+          // const events = ['pointerdown', 'click', 'keydown', 'touchstart', 'scroll'];
+          // events.forEach(eventType => {
+          //   document.addEventListener(eventType, initializeAuthCheck, { once: true, passive: true });
+          //   debugLog(`📎 Event listener aggiunto: ${eventType}`);
+          // });
+
+          const activationEvents = ['mousedown', 'click', 'touchstart', 'keydown'];
+          activationEvents.forEach(eventType => {
+            window.addEventListener(eventType, initializeAuthCheck, {
+              once: true,
+              capture: true, // Critico per prevenire il blocco
+              passive: true
+            });
           });
 
           // Fallback con timer più aggressivo - DISABILITATO per evitare popup block
