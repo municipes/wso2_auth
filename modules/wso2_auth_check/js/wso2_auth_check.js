@@ -396,25 +396,25 @@
             debugLog(`📎 Event listener aggiunto: ${eventType}`);
           });
 
-          // Fallback con timer più aggressivo
-          let fallbackCounter = 0;
-          const fallbackInterval = setInterval(() => {
-            fallbackCounter++;
-            debugLog(`⏰ Fallback timer #${fallbackCounter} (ogni 2 secondi)`);
+          // Fallback con timer più aggressivo - DISABILITATO per evitare popup block
+          // let fallbackCounter = 0;
+          // const fallbackInterval = setInterval(() => {
+          //   fallbackCounter++;
+          //   debugLog(`⏰ Fallback timer #${fallbackCounter} (ogni 2 secondi)`);
 
-            // Prova ogni 2 secondi per 3 volte, poi ogni 10 secondi
-            if (fallbackCounter <= 3 || fallbackCounter % 5 === 0) {
-              debugLog('🚀 Attivazione fallback - esecuzione controllo');
-              clearInterval(fallbackInterval);
-              initializeAuthCheck();
-            }
+          //   // Prova ogni 2 secondi per 3 volte, poi ogni 10 secondi
+          //   if (fallbackCounter <= 3 || fallbackCounter % 5 === 0) {
+          //     debugLog('🚀 Attivazione fallback - esecuzione controllo');
+          //     clearInterval(fallbackInterval);
+          //     initializeAuthCheck();
+          //   }
 
-            // Stop dopo 2 minuti
-            if (fallbackCounter >= 60) {
-              debugLog('⏰ Fallback timeout - stop tentativi');
-              clearInterval(fallbackInterval);
-            }
-          }, 2000);
+          //   // Stop dopo 2 minuti
+          //   if (fallbackCounter >= 60) {
+          //     debugLog('⏰ Fallback timeout - stop tentativi');
+          //     clearInterval(fallbackInterval);
+          //   }
+          // }, 2000);
 
           // Backup immediato senza delay (per testing) - DISABILITATO per evitare popup block
           // if (config.debug) {
