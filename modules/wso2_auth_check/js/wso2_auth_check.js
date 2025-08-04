@@ -87,8 +87,8 @@
 
           // Debug delay per permettere lettura del log
           if (config.debug) {
-            debugLog('⏳ Debug delay attivo - attesa 5 secondi...');
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            debugLog('⏳ Debug delay attivo - attesa 15 secondi...');
+            await new Promise(resolve => setTimeout(resolve, 15000));
             debugLog('✅ Debug delay completato - apertura popup');
           }
 
