@@ -45,7 +45,7 @@ class WSO2ConfigService {
   public function __construct(ConfigFactoryInterface $config_factory, ModuleHandlerInterface $module_handler, WSO2EnvironmentHelper $environment_helper = NULL) {
     $this->configFactory = $config_factory;
     $this->moduleHandler = $module_handler;
-    $this->environmentHelper = $environment_helper;
+    $this->environmentHelper = $environment_helper ?: new WSO2EnvironmentHelper($config_factory);
   }
 
   /**
@@ -96,7 +96,7 @@ class WSO2ConfigService {
    */
   public function debug($message, array $context = []) {
     if ($this->isDebugEnabled()) {
-      \Drupal::logger('wso2_auth_check')->debug($message, $context);
+      \Drupal::logger('wso2_auth_check')->debug($message, ['@context' => $context]);
     }
   }
 
@@ -107,27 +107,29 @@ class WSO2ConfigService {
    *   Array con le configurazioni.
    */
   public function getConfig() {
-    $check_config = $this->configFactory->get('wso2_auth_check.settings');
-
     $config = [
-      'enabled' => $this->isEnabled(),
       'idpUrl' => '',
       'clientId' => '',
-      'redirectUri' => \Drupal::request()->getSchemeAndHttpHost() . '/sso/probe-callback',
+      'redirectUri' => \Drupal::request()->getSchemeAndHttpHost() . '/wso2-auth-callback',
       'loginPath' => '',  // Sarà impostato in base al modulo attivo
-      'checkInterval' => $check_config->get('check_interval') ?? 0.5,
+      'checkInterval' => $this->configFactory->get('wso2_auth_check.settings')->get('check_interval') ?? 3,
       'debug' => $this->isDebugEnabled(),
+      'checkSessionMethod' => $this->configFactory->get('wso2_auth_check.settings')->get('check_session_method') ?? 'iframe',
     ];
 
     // Usa wso2_auth se disponibile.
-    if ($this->moduleHandler->moduleExists('wso2_auth') && $this->environmentHelper) {
+    if ($this->moduleHandler->moduleExists('wso2_auth')) {
       $auth_config = $this->configFactory->get('wso2_auth.settings');
+      // Ottieni URL e endpoint del server di autenticazione
+      $auth_server_url = $this->environmentHelper->getAuthServerUrl();
+      $auth_endpoint = $this->environmentHelper->getAuthEndpoint();
+      $full_auth_url = $auth_server_url . $auth_endpoint;
+      $check_session_url = $this->environmentHelper->getCheckSessionUrl();
 
       if ($auth_config->get('enabled')) {
-        // Ottieni URL del server di autenticazione
-        $auth_server_url = $this->environmentHelper->getAuthServerUrl();
-
-        $config['idpUrl'] = $auth_server_url;
+        $config['idpUrl'] = $full_auth_url;
+        $config['checkSessionUrl'] = $check_session_url; // Aggiungi l'URL per il controllo sessione
+        $config['redirectUri'] = \Drupal::request()->getSchemeAndHttpHost() . '/wso2-auth-callback';
         $config['clientId'] = $auth_config->get('citizen.client_id');
         $config['loginPath'] = '/wso2-auth/authorize/citizen';
         return $config;
@@ -143,7 +145,10 @@ class WSO2ConfigService {
           $server_url = 'https://id-staging.055055.it:9443';
         }
 
-        $config['idpUrl'] = rtrim($server_url, '/') . '/oauth2';
+        $authorize = '/oauth2/authorize';
+        $config['idpUrl'] = rtrim($server_url, '/') . $authorize;
+        $config['checkSessionUrl'] = rtrim($server_url, '/') . '/oidc/checksession'; // Aggiungi URL checksession
+        $config['redirectUri'] = \Drupal::request()->getSchemeAndHttpHost() . '/oauth2/authorized';
         $config['clientId'] = $silfi_config->get('citizen.client_id');
         $config['loginPath'] = '/wso2silfi/connect/cittadino';
         return $config;

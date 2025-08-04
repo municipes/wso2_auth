@@ -1,4 +1,4 @@
 services:
   wso2_auth_check.config:
     class: Drupal\wso2_auth_check\Service\WSO2ConfigService
-    arguments: ['@config.factory', '@module_handler', '@?wso2_auth.environment_helper']
+    arguments: ['@config.factory', '@module_handler']

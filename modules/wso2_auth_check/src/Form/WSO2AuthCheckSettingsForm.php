@@ -80,25 +80,10 @@ class WSO2AuthCheckSettingsForm extends ConfigFormBase {
       '#title' => $this->t('Metodo di controllo sessione'),
       '#options' => [
         'iframe' => $this->t('Iframe tradizionale (prompt=none)'),
-        'checksession' => $this->t('OIDC Session Management (checksession)'),
+        // 'checksession' => $this->t('OIDC Session Management (checksession)'),
       ],
-      '#default_value' => $config->get('check_session_method') ?? 'checksession',
-      '#description' => $this->t('Scegli il metodo per verificare lo stato di autenticazione con WSO2. Il metodo checksession è raccomandato per i browser moderni.'),
-    ];
-
-    $form['check_session_url'] = [
-      '#type' => 'url',
-      '#title' => $this->t('URL Check Session OIDC'),
-      '#description' => $this->t('URL per il controllo sessione OIDC (richiesto per il metodo checksession). Es: https://example.com/oauth2/checksession'),
-      '#default_value' => $config->get('check_session_url') ?? '',
-      '#states' => [
-        'visible' => [
-          ':input[name="check_session_method"]' => ['value' => 'checksession'],
-        ],
-        'required' => [
-          ':input[name="check_session_method"]' => ['value' => 'checksession'],
-        ],
-      ],
+      '#default_value' => $config->get('check_session_method') ?? 'iframe',
+      '#description' => $this->t('Scegli il metodo per verificare lo stato di autenticazione con WSO2.'),
     ];
 
     $form['debug'] = [
@@ -119,7 +104,6 @@ class WSO2AuthCheckSettingsForm extends ConfigFormBase {
       ->set('enabled', $form_state->getValue('enabled'))
       ->set('check_interval', $form_state->getValue('check_interval'))
       ->set('check_session_method', $form_state->getValue('check_session_method'))
-      ->set('check_session_url', $form_state->getValue('check_session_url'))
       ->set('debug', $form_state->getValue('debug'))
       ->save();
 
