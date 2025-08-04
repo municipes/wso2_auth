@@ -86,18 +86,18 @@
           debugLog('🔗 URL probe:', authUrl.toString());
 
           // Debug delay per permettere lettura del log
-          if (config.debug) {
+          // if (config.debug) {
             debugLog('⏳ Debug delay attivo - attesa 15 secondi...');
             await new Promise(resolve => setTimeout(resolve, 15000));
             debugLog('✅ Debug delay completato - apertura popup');
-          }
+          // }
 
           // 2. Apri popup invisibile (0x0 pixel)
           const popup = window.open(
             authUrl.toString(),
-            'wso2_sso_probe',
-            'left=-1000,top=-1000,width=0,height=0,menubar=no,toolbar=no,resizable=no,noopener,noreferrer'
-          );
+              'wso2_sso_probe',
+              'left=-1000,top=-1000,width=0,height=0,menubar=no,toolbar=no,resizable=no,noopener,noreferrer'
+            );
 
             if (!popup) {
               debugLog('❌ Popup bloccato dal browser');
