@@ -88,7 +88,7 @@
         if (lastFailure) {
           const failureTime = parseInt(lastFailure);
           const failureAge = Date.now() - failureTime;
-          const failureCooldown = 10 * 60 * 1000; // 10 minuti
+          const failureCooldown = config.debug ? 30 * 1000 : 10 * 60 * 1000; // 30 sec in debug, 10 min in produzione
           const failureCooldownEnd = failureTime + failureCooldown;
           const timeUntilCooldownEnd = failureCooldownEnd - Date.now();
 
