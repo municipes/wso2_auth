@@ -130,7 +130,7 @@ class WSO2AuthService {
       $session_part = substr(md5($session_id), 0, 8);
       return 'wso2_auth.' . $key . '.' . $session_part;
     }
-    
+
     return 'wso2_auth.' . $key;
   }
 
@@ -231,7 +231,7 @@ class WSO2AuthService {
 
     // Genera una chiave unica per questo utente
     $state_key = $this->getStateKey('state');
-    
+
     // Memorizza nello State API di Drupal
     $this->state->set($state_key, $state);
 
@@ -257,7 +257,7 @@ class WSO2AuthService {
   public function verifyState($returned_state): bool {
     // Recupera la chiave unica per questo utente
     $state_key = $this->getStateKey('state');
-    
+
     // Recupera lo stato memorizzato nello State API
     $stored_state = $this->state->get($state_key);
 
@@ -291,7 +291,7 @@ class WSO2AuthService {
     // Verifica 2: Confronto sicuro contro attacchi timing
     $result = hash_equals($stored_state, (string) $returned_state);
 
-    // NON rimuoviamo lo stato dallo State API qui, poiché potrebbe essere necessario 
+    // NON rimuoviamo lo stato dallo State API qui, poiché potrebbe essere necessario
     // per altri controlli successivi durante il flusso di autenticazione
 
     return $result;
@@ -669,6 +669,12 @@ class WSO2AuthService {
       $email_key = !empty($mapping['email']) ? $mapping['email'] : 'email';
       if (!empty($user_data[$email_key])) {
         $user_info['mail'] = $user_data[$email_key];
+      }
+      else {
+        // Generate a email based on the ID if no mapping is available.
+        $prefix = ($auth_type === 'operator') ? 'wso2op_' : '';
+        // temporaneo da migliorare/modificare
+        $user_info['mail'] = $prefix . substr(strtolower($user_data['family_name'] . $user_data['given_name']), 0, 20) . random_int(10, 99) . '@gmail.com';
       }
 
       // Map username.
