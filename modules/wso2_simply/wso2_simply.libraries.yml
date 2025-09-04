@@ -1,0 +1,5 @@
+wso2_simply:
+  js:
+    js/wso2_simply.js: {}
+  dependencies:
+    - core/drupal

@@ -1,0 +1,7 @@
+name: 'WSO2 Simply'
+type: module
+description: 'Modulo per autenticazione OAuth2 tramite WSO2 con redirect automatico'
+package: Custom
+core_version_requirement: ^10
+dependencies:
+  - wso2_auth:wso2_auth
