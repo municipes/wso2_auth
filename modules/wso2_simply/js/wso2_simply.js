@@ -58,7 +58,7 @@
     fetch(oauthUrl, {
       method: 'GET',
       redirect: 'manual', // Non seguire automaticamente i redirect
-      credentials: 'include'
+      credentials: 'include' // Importante: include i cookie di sessione
     })
     .then(function(response) {
       // Controllo se è un redirect (status 301, 302, etc.)
