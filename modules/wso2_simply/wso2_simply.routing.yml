@@ -1,7 +1,0 @@
-wso2_simply.config:
-  path: '/admin/config/system/wso2-simply'
-  defaults:
-    _form: '\Drupal\wso2_simply\Form\Wso2SimplyConfigForm'
-    _title: 'Configurazione WSO2 Simply'
-  requirements:
-    _permission: 'administer site configuration'

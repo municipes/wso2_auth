@@ -1,6 +1,0 @@
-enabled: 1
-oauth_url: 'https://id.055055.it:9443/oauth2/authorize'
-client_id: ''
-redirect_uri: ''
-scope: openid
-base_redirect_url: ''
