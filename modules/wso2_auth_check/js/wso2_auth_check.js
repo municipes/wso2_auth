@@ -91,7 +91,147 @@
         const checkSessionMethod = idpConfig.checkSessionMethod || 'iframe';
         debugLog('Metodo di controllo sessione:', checkSessionMethod);
 
-        if (checkSessionMethod === 'checksession' && idpConfig.checkSessionUrl) {
+        if (checkSessionMethod === 'direct') {
+          // ===============================
+          // NUOVO METODO: Chiamata diretta JavaScript
+          // ===============================
+
+          debugLog('Utilizzo del metodo chiamata diretta JavaScript con prompt=none');
+
+          // Genera un nonce sicuro
+          const generateNonce = function() {
+            const array = new Uint8Array(16);
+            window.crypto.getRandomValues(array);
+            return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+          };
+
+          // Genera un nonce e salvalo nel localStorage per la verifica futura
+          const nonce = generateNonce();
+          localStorage.setItem('wso2_auth_nonce', nonce);
+
+          // Costruisci l'URL per la chiamata diretta
+          const authCheckUrl = new URL(idpConfig.idpUrl);
+          authCheckUrl.searchParams.append('response_type', 'id_token');
+          authCheckUrl.searchParams.append('client_id', idpConfig.clientId);
+          authCheckUrl.searchParams.append('redirect_uri', idpConfig.redirectUri);
+          authCheckUrl.searchParams.append('scope', 'openid');
+          authCheckUrl.searchParams.append('prompt', 'none');
+          authCheckUrl.searchParams.append('nonce', nonce);
+          authCheckUrl.searchParams.append('nc', Date.now().toString());
+
+          debugLog('URL chiamata diretta:', authCheckUrl.toString());
+
+          // Effettua la chiamata diretta
+          fetch(authCheckUrl.toString(), {
+            method: 'GET',
+            mode: 'cors',
+            credentials: 'include', // Importante per includere i cookie di sessione WSO2
+            cache: 'no-cache',
+            redirect: 'manual' // Gestione manuale dei redirect per catturare la risposta
+          })
+          .then(response => {
+            debugLog('Risposta ricevuta:', response.status, response.type);
+            
+            if (response.type === 'opaqueredirect') {
+              // Se otteniamo un redirect opaco, significa che c'è probabilmente un redirect con token
+              debugLog('Redirect opaco rilevato - possibile autenticazione attiva');
+              
+              // Per gestire il redirect opaco, proviamo a fare una richiesta diretta all'URL
+              return fetch(authCheckUrl.toString(), {
+                method: 'GET',
+                mode: 'no-cors',
+                credentials: 'include',
+                cache: 'no-cache'
+              }).then(() => {
+                // Se la richiesta va a buon fine senza errori, l'utente potrebbe essere autenticato
+                debugLog('Richiesta no-cors completata - verifica tramite iframe di controllo');
+                
+                // Crea un iframe temporaneo per verificare il redirect
+                const checkIframe = document.createElement('iframe');
+                checkIframe.style.display = 'none';
+                checkIframe.src = authCheckUrl.toString();
+                
+                checkIframe.onload = function() {
+                  try {
+                    const iframeLocation = checkIframe.contentWindow.location.href;
+                    if (iframeLocation.includes('id_token=')) {
+                      debugLog('Token trovato nell\'iframe di verifica - utente autenticato');
+                      redirectToLogin();
+                    } else {
+                      debugLog('Nessun token trovato nell\'iframe di verifica');
+                      localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+                    }
+                  } catch (e) {
+                    debugLog('Impossibile accedere al contenuto iframe (CORS)');
+                    localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+                  }
+                  document.body.removeChild(checkIframe);
+                };
+                
+                checkIframe.onerror = function() {
+                  debugLog('Errore caricamento iframe di verifica');
+                  localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+                  document.body.removeChild(checkIframe);
+                };
+                
+                document.body.appendChild(checkIframe);
+              });
+            }
+            
+            // Controlla l'URL di risposta per la presenza del token
+            if (response.url && response.url.includes('id_token=')) {
+              debugLog('Token trovato nell\'URL di risposta - utente autenticato');
+              redirectToLogin();
+              return;
+            }
+            
+            // Se arriviamo qui, probabilmente l'utente non è autenticato
+            debugLog('Nessun token trovato - utente non autenticato');
+            localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+          })
+          .catch(error => {
+            debugLog('Errore nella chiamata diretta:', error);
+            
+            // Alcuni errori potrebbero indicare problemi CORS ma non necessariamente mancanza di autenticazione
+            if (error.name === 'TypeError' && error.message.includes('CORS')) {
+              debugLog('Errore CORS rilevato - tentativo fallback con iframe');
+              
+              // Fallback: usa iframe come metodo di verifica
+              const fallbackIframe = document.createElement('iframe');
+              fallbackIframe.style.display = 'none';
+              fallbackIframe.src = authCheckUrl.toString();
+              
+              fallbackIframe.onload = function() {
+                try {
+                  const iframeLocation = fallbackIframe.contentWindow.location.href;
+                  if (iframeLocation.includes('id_token=')) {
+                    debugLog('Token trovato nell\'iframe fallback - utente autenticato');
+                    redirectToLogin();
+                  } else {
+                    debugLog('Nessun token nell\'iframe fallback');
+                    localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+                  }
+                } catch (e) {
+                  debugLog('Impossibile accedere al contenuto iframe fallback');
+                  localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+                }
+                document.body.removeChild(fallbackIframe);
+              };
+              
+              fallbackIframe.onerror = function() {
+                debugLog('Errore caricamento iframe fallback');
+                localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+                document.body.removeChild(fallbackIframe);
+              };
+              
+              document.body.appendChild(fallbackIframe);
+            } else {
+              // Altri tipi di errore suggeriscono che l'utente non è autenticato
+              localStorage.setItem('wso2_auth_not_authenticated', Date.now().toString());
+            }
+          });
+
+        } else if (checkSessionMethod === 'checksession' && idpConfig.checkSessionUrl) {
           // ===============================
           // NUOVO METODO: OIDC checksession
           // ===============================

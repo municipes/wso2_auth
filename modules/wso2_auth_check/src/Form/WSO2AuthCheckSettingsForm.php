@@ -80,6 +80,7 @@ class WSO2AuthCheckSettingsForm extends ConfigFormBase {
       '#title' => $this->t('Metodo di controllo sessione'),
       '#options' => [
         'iframe' => $this->t('Iframe tradizionale (prompt=none)'),
+        'direct' => $this->t('Chiamata diretta JavaScript (prompt=none)'),
         // 'checksession' => $this->t('OIDC Session Management (checksession)'),
       ],
       '#default_value' => $config->get('check_session_method') ?? 'iframe',
