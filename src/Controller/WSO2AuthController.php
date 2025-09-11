@@ -366,7 +366,7 @@ class WSO2AuthController extends ControllerBase {
         ]);
       }
 
-      $response = new RedirectResponse($safe_url);
+      $response = new TrustedRedirectResponse($safe_url);
       $response->setPrivate();
       $response->headers->addCacheControlDirective('no-store');
       $response->setMaxAge(0); // Disabilita cache browser
