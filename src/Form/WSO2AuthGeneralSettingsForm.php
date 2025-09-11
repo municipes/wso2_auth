@@ -137,12 +137,14 @@ class WSO2AuthGeneralSettingsForm extends ConfigFormBase {
       '#open' => FALSE,
     ];
 
-    // $form['advanced']['auto_login'] = [
-    //   '#type' => 'checkbox',
-    //   '#title' => $this->t('Enable auto-login (Single Sign-On)'),
-    //   '#default_value' => $config->get('auto_login') ?? FALSE,
-    //   '#description' => $this->t('Automatically authenticate users who are already logged in to WSO2 when they visit the site.'),
-    // ];
+    $form['advanced']['external_domains_whitelist'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('External domains whitelist'),
+      '#default_value' => $config->get('external_domains_whitelist') ?? '',
+      '#description' => $this->t('List of external domains allowed for post-authentication redirects. One domain per line (e.g., example.com, trusted-site.org). Leave empty to disable external redirects.'),
+      '#rows' => 5,
+      '#placeholder' => "example.com\ntrusted-site.org\npartner.domain.it",
+    ];
 
     $form['advanced']['debug'] = [
       '#type' => 'checkbox',
@@ -175,7 +177,7 @@ class WSO2AuthGeneralSettingsForm extends ConfigFormBase {
       ->set('com_entity_id', $values['com_entity_id'])
       ->set('picture_enabled', (bool) $values['picture_enabled'])
       ->set('citizen_enabled', (bool) $values['citizen_enabled'])
-      // ->set('auto_login', (bool) $values['auto_login'])
+      ->set('external_domains_whitelist', $values['external_domains_whitelist'])
       ->set('debug', (bool) $values['debug'])
       ->save();
 

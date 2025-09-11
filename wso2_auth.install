@@ -22,6 +22,7 @@ function wso2_auth_install() {
     ->set('auto_redirect', FALSE)
     ->set('auto_login', FALSE)
     ->set('debug', FALSE)
+    ->set('external_domains_whitelist', '')
 
     // Citizen settings.
     ->set('citizen.client_id', '')
@@ -132,4 +133,19 @@ function wso2_auth_update_8001() {
   $config->save();
 
   return t('Updated WSO2 Auth configuration structure.');
+}
+
+/**
+ * Add external domains whitelist configuration.
+ */
+function wso2_auth_update_8002() {
+  $config = \Drupal::configFactory()->getEditable('wso2_auth.settings');
+
+  // Aggiungi il nuovo campo se non esiste già
+  if (!$config->get('external_domains_whitelist')) {
+    $config->set('external_domains_whitelist', '');
+    $config->save();
+  }
+
+  return t('Added external domains whitelist configuration option.');
 }

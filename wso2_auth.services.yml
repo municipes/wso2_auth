@@ -4,6 +4,12 @@ services:
     arguments:
       - '@config.factory'
 
+  wso2_auth.secure_redirect:
+    class: Drupal\wso2_auth\Service\SecureRedirectService
+    arguments:
+      - '@config.factory'
+      - '@logger.channel.wso2_auth'
+
   wso2_auth.authentication:
     class: Drupal\wso2_auth\WSO2AuthService
     arguments:

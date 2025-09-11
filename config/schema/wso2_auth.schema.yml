@@ -36,6 +36,9 @@ wso2_auth.settings:
     check_session_url:
       type: string
       label: 'URL per il controllo della sessione'
+    external_domains_whitelist:
+      type: string
+      label: 'External domains whitelist for redirects'
 
     # Citizen Settings
     citizen:
