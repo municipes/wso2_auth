@@ -93,13 +93,26 @@ class SecureRedirectService {
    *   TRUE if the URL is safe for redirect.
    */
   public function isUrlSafeForRedirect(string $url): bool {
+    $config = $this->configFactory->get('wso2_auth.settings');
+    $debug = $config->get('debug');
+
     // Se è un percorso relativo, è sempre sicuro
     if (strpos($url, '/') === 0 && strpos($url, '//') !== 0) {
+      if ($debug) {
+        $this->logger->debug('WSO2 Auth SecureRedirect: Internal path @url is safe', [
+          '@url' => $url,
+        ]);
+      }
       return TRUE;
     }
 
     // Se non è un URL valido, non è sicuro
     if (!filter_var($url, FILTER_VALIDATE_URL)) {
+      if ($debug) {
+        $this->logger->debug('WSO2 Auth SecureRedirect: Invalid URL @url', [
+          '@url' => $url,
+        ]);
+      }
       return FALSE;
     }
 
@@ -107,6 +120,11 @@ class SecureRedirectService {
 
     // Se non ha host, potrebbe essere relativo - sicuro
     if (!isset($parsed_url['host'])) {
+      if ($debug) {
+        $this->logger->debug('WSO2 Auth SecureRedirect: URL without host @url is safe', [
+          '@url' => $url,
+        ]);
+      }
       return TRUE;
     }
 
@@ -114,6 +132,22 @@ class SecureRedirectService {
 
     // Controlla se il dominio è nella whitelist
     $whitelisted_domains = $this->getWhitelistedDomains();
+
+    if ($debug) {
+      $this->logger->debug('WSO2 Auth SecureRedirect: Checking host @host against whitelist: @whitelist', [
+        '@host' => $host,
+        '@whitelist' => implode(', ', $whitelisted_domains),
+      ]);
+    }
+
+    if (empty($whitelisted_domains)) {
+      if ($debug) {
+        $this->logger->debug('WSO2 Auth SecureRedirect: No whitelist configured, external URL @url rejected', [
+          '@url' => $url,
+        ]);
+      }
+      return FALSE;
+    }
 
     foreach ($whitelisted_domains as $allowed_domain) {
       // Normalizza il dominio consentito
@@ -123,11 +157,66 @@ class SecureRedirectService {
       // Confronto esatto o sottodominio
       if ($host === $normalized_allowed ||
           str_ends_with($host, '.' . $normalized_allowed)) {
+        if ($debug) {
+          $this->logger->debug('WSO2 Auth SecureRedirect: Host @host matches whitelist domain @domain', [
+            '@host' => $host,
+            '@domain' => $normalized_allowed,
+          ]);
+        }
         return TRUE;
       }
     }
 
+    if ($debug) {
+      $this->logger->debug('WSO2 Auth SecureRedirect: Host @host not in whitelist', [
+        '@host' => $host,
+      ]);
+    }
+
     return FALSE;
+  }
+
+  /**
+   * Simple method to get redirect URL for debugging.
+   *
+   * @param string $destination
+   *   The destination URL.
+   *
+   * @return array
+   *   Debug information about the URL processing.
+   */
+  public function debugUrl(string $destination): array {
+    $info = [
+      'original' => $destination,
+      'is_internal_path' => FALSE,
+      'is_valid_url' => FALSE,
+      'is_safe' => FALSE,
+      'final_url' => '',
+      'whitelist' => $this->getWhitelistedDomains(),
+    ];
+
+    // Controlla se è un percorso interno
+    if (strpos($destination, '/') === 0 && strpos($destination, '//') !== 0) {
+      $info['is_internal_path'] = TRUE;
+      try {
+        $info['final_url'] = Url::fromUserInput($destination)->setAbsolute()->toString();
+      } catch (\Exception $e) {
+        $info['error'] = $e->getMessage();
+        $info['final_url'] = Url::fromRoute('<front>')->setAbsolute()->toString();
+      }
+    } else {
+      // Controlla se è un URL valido
+      $info['is_valid_url'] = filter_var($destination, FILTER_VALIDATE_URL) !== FALSE;
+      if ($info['is_valid_url']) {
+        $parsed = parse_url($destination);
+        $info['parsed'] = $parsed;
+        $info['final_url'] = $destination;
+      }
+    }
+
+    $info['is_safe'] = $this->isUrlSafeForRedirect($destination);
+
+    return $info;
   }
 
   /**
