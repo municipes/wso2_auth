@@ -543,7 +543,7 @@ class WSO2AuthController extends ControllerBase {
     // Se non c'è una sessione WSO2, fai solo il logout da Drupal
     if (empty($wso2_session) || empty($wso2_session['id_token'])) {
       $this->userLogout();
-      $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
+      $response = new TrustedRedirectResponse(Url::fromRoute('<front>')->setAbsolute()->toString());
       $response->setPrivate();
       $response->headers->addCacheControlDirective('no-store');
       return $response;
