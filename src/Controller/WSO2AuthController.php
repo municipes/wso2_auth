@@ -590,4 +590,39 @@ class WSO2AuthController extends ControllerBase {
   protected function userLogout(): void {
     $this->currentUser()->logout();
   }
+
+  /**
+   * Check if a URL is external.
+   *
+   * @param string $url
+   *   The URL to check.
+   *
+   * @return bool
+   *   TRUE if the URL is external.
+   */
+  protected function isExternalUrl(string $url): bool {
+    // Se inizia con / ed è un percorso interno
+    if (strpos($url, '/') === 0 && strpos($url, '//') !== 0) {
+      return FALSE;
+    }
+
+    // Se non è un URL valido, assumiamo sia interno
+    if (!filter_var($url, FILTER_VALIDATE_URL)) {
+      return FALSE;
+    }
+
+    $parsed_url = parse_url($url);
+
+    // Se non ha host, è interno
+    if (!isset($parsed_url['host'])) {
+      return FALSE;
+    }
+
+    // Ottieni l'host corrente del sito
+    $current_request = $this->requestStack->getCurrentRequest();
+    $current_host = $current_request ? $current_request->getHttpHost() : '';
+
+    // Se l'host è diverso da quello corrente, è esterno
+    return $parsed_url['host'] !== $current_host;
+  }
 }

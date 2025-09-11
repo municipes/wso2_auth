@@ -168,13 +168,15 @@ class SecureRedirectService {
       }
 
       // Se è un URL esterno whitelistato, usalo direttamente
-      if ($debug) {
-        $this->logger->debug('WSO2 Auth SecureRedirect: External URL @dest is whitelisted', [
-          '@dest' => $destination,
-        ]);
-      }
+      if (filter_var($destination, FILTER_VALIDATE_URL)) {
+        if ($debug) {
+          $this->logger->debug('WSO2 Auth SecureRedirect: External URL @dest is whitelisted', [
+            '@dest' => $destination,
+          ]);
+        }
 
-      return $destination;
+        return $destination;
+      }
     }
 
     // URL non sicuro, usa fallback
@@ -185,6 +187,38 @@ class SecureRedirectService {
     }
 
     return Url::fromRoute($fallback_route)->setAbsolute()->toString();
+  }
+
+  /**
+   * Check if a URL is external to the current site.
+   *
+   * @param string $url
+   *   The URL to check.
+   *
+   * @return bool
+   *   TRUE if the URL is external.
+   */
+  public function isExternalUrl(string $url): bool {
+    // Se inizia con / ed è un percorso interno
+    if (strpos($url, '/') === 0 && strpos($url, '//') !== 0) {
+      return FALSE;
+    }
+
+    // Se non è un URL valido, assumiamo sia interno
+    if (!filter_var($url, FILTER_VALIDATE_URL)) {
+      return FALSE;
+    }
+
+    $parsed_url = parse_url($url);
+
+    // Se non ha host, è interno
+    if (!isset($parsed_url['host'])) {
+      return FALSE;
+    }
+
+    // Per ora assumiamo che se ha un host diverso è esterno
+    // Questo può essere raffinato in base alle esigenze
+    return TRUE;
   }
 
 }
