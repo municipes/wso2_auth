@@ -51,6 +51,15 @@ wso2_auth.settings:
         client_secret:
           type: string
           label: 'Client Secret'
+        api_manager_environment:
+          type: string
+          label: 'API Manager Environment'
+        api_manager_client_id:
+          type: string
+          label: 'API Manager Client ID'
+        api_manager_client_secret:
+          type: string
+          label: 'API Manager Client Secret'
         scope:
           type: string
           label: 'Scope'
