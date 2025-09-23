@@ -1,0 +1,14 @@
+enabled: true
+api_manager:
+  environment: staging
+  client_id: ''
+  client_secret: ''
+sync:
+  interval: 1800
+  fields:
+    - firstname
+    - lastname
+    - email
+    - mobile
+debug:
+  enabled: false

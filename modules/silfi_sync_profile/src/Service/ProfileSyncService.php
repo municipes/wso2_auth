@@ -64,8 +64,8 @@ class ProfileSyncService {
    *   The API base URL.
    */
   protected function getApiBaseUrl(): string {
-    $wso2_config = $this->configFactory->get('wso2_auth.settings');
-    $environment = $wso2_config->get('citizen.api_manager_environment') ?? 'staging';
+    $config = $this->configFactory->get('silfi_sync_profile.settings');
+    $environment = $config->get('api_manager.environment') ?? 'staging';
 
     return $environment === 'production' ? 'https://api.055055.it' : 'https://api-staging.055055.it';
   }
@@ -113,7 +113,7 @@ class ProfileSyncService {
   }
 
   /**
-   * Check if sync was already performed in the last 30 minutes.
+   * Check if sync was already performed recently based on configured interval.
    *
    * @param int $user_id
    *   The user ID.
@@ -122,6 +122,9 @@ class ProfileSyncService {
    *   TRUE if sync was already performed recently, FALSE otherwise.
    */
   public function wasSyncPerformedRecently(int $user_id): bool {
+    $config = $this->configFactory->get('silfi_sync_profile.settings');
+    $sync_interval = $config->get('sync.interval') ?? 1800;
+
     $last_sync_key = 'silfi_sync_profile.last_sync.' . $user_id;
     $last_sync = \Drupal::state()->get($last_sync_key);
 
@@ -129,8 +132,8 @@ class ProfileSyncService {
       return FALSE;
     }
 
-    // Check if last sync was within the last 30 minutes (1800 seconds)
-    $threshold = time() - 1800;
+    // Check if last sync was within the configured interval
+    $threshold = time() - $sync_interval;
     return $last_sync > $threshold;
   }
 
@@ -152,17 +155,17 @@ class ProfileSyncService {
    *   The access token or NULL if not available.
    */
   public function getApiManagerToken(): ?string {
-    $wso2_config = $this->configFactory->get('wso2_auth.settings');
-    if (!$wso2_config) {
-      $this->logger->error('WSO2 configuration not available');
+    $config = $this->configFactory->get('silfi_sync_profile.settings');
+    if (!$config) {
+      $this->logger->error('Silfi Sync Profile configuration not available');
       return NULL;
     }
 
-    $client_id = $wso2_config->get('citizen.api_manager_client_id');
-    $client_secret = $wso2_config->get('citizen.api_manager_client_secret');
+    $client_id = $config->get('api_manager.client_id');
+    $client_secret = $config->get('api_manager.client_secret');
 
     if (empty($client_id) || empty($client_secret)) {
-      $this->logger->error('API Manager client credentials not configured');
+      $this->logger->error('API Manager client credentials not configured in Silfi Sync Profile settings');
       return NULL;
     }
 
@@ -177,8 +180,9 @@ class ProfileSyncService {
       'connect_timeout' => 10,
     ];
 
-    // Skip SSL verification if configured
-    if ($wso2_config->get('skip_ssl_verification')) {
+    // Skip SSL verification if configured in WSO2 auth (fallback to main config)
+    $wso2_config = $this->configFactory->get('wso2_auth.settings');
+    if ($wso2_config && $wso2_config->get('skip_ssl_verification')) {
       $options['verify'] = FALSE;
     }
 
@@ -482,6 +486,13 @@ class ProfileSyncService {
    *   TRUE if sync was successful or not needed, FALSE on error.
    */
   public function performSync(int $user_id): bool {
+    // Check if sync is enabled
+    $config = $this->configFactory->get('silfi_sync_profile.settings');
+    if (!$config || !$config->get('enabled')) {
+      $this->logger->debug('Profile synchronization is disabled, skipping sync');
+      return TRUE; // Return TRUE as this is not an error, just disabled
+    }
+
     // Check if user is authenticated
     if (!$this->isUserAuthenticated()) {
       $this->logger->debug('User not authenticated, skipping sync');

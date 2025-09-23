@@ -1,0 +1,8 @@
+silfi_sync_profile.settings:
+  path: '/admin/config/people/wso2-auth/sync-profile'
+  defaults:
+    _form: '\Drupal\silfi_sync_profile\Form\SilfiSyncProfileSettingsForm'
+    _title: 'Profile Synchronization'
+  requirements:
+    _permission: 'administer wso2 authentication'
+    _module_dependencies: 'silfi_sync_profile'

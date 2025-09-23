@@ -1,0 +1,39 @@
+silfi_sync_profile.settings:
+  type: config_object
+  label: 'Silfi Sync Profile settings'
+  mapping:
+    enabled:
+      type: boolean
+      label: 'Enable profile synchronization'
+    api_manager:
+      type: mapping
+      label: 'API Manager settings'
+      mapping:
+        environment:
+          type: string
+          label: 'API environment'
+        client_id:
+          type: string
+          label: 'Client ID'
+        client_secret:
+          type: string
+          label: 'Client Secret'
+    sync:
+      type: mapping
+      label: 'Synchronization settings'
+      mapping:
+        interval:
+          type: integer
+          label: 'Sync interval in seconds'
+        fields:
+          type: sequence
+          label: 'Fields to synchronize'
+          sequence:
+            type: string
+    debug:
+      type: mapping
+      label: 'Debug settings'
+      mapping:
+        enabled:
+          type: boolean
+          label: 'Enable debug logging'

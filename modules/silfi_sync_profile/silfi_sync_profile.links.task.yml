@@ -1,0 +1,5 @@
+silfi_sync_profile.settings:
+  title: 'Profile Synchronization'
+  route_name: silfi_sync_profile.settings
+  base_route: wso2_auth.settings
+  weight: 30

@@ -102,47 +102,6 @@ class WSO2AuthCitizenSettingsForm extends ConfigFormBase {
       '#required' => TRUE,
     ];
 
-    // Add API Manager fieldset.
-    $form['api_manager'] = [
-      '#type' => 'details',
-      '#title' => $this->t('API Manager'),
-      '#open' => TRUE,
-    ];
-
-    // API Manager environment selection.
-    $form['api_manager']['api_manager_environment'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Environment'),
-      '#options' => [
-        'staging' => $this->t('Staging'),
-        'production' => $this->t('Production'),
-      ],
-      '#default_value' => $config->get('citizen.api_manager_environment') ?? 'staging',
-      '#description' => $this->t('Select the API Manager environment to use.'),
-      '#required' => TRUE,
-    ];
-
-    // API Manager client_id.
-    $form['api_manager']['api_manager_client_id'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Client ID'),
-      '#default_value' => $config->get('citizen.api_manager_client_id'),
-      '#size' => 25,
-      '#maxlength' => 64,
-      '#description' => $this->t('The API Manager client ID.'),
-      '#required' => FALSE,
-    ];
-
-    // API Manager client_secret.
-    $form['api_manager']['api_manager_client_secret'] = [
-      '#type' => 'password',
-      '#title' => $this->t('Client Secret'),
-      '#default_value' => $config->get('citizen.api_manager_client_secret'),
-      '#size' => 25,
-      '#maxlength' => 64,
-      '#description' => $this->t('The API Manager client secret.'),
-      '#required' => FALSE,
-    ];
 
     $form['user_settings'] = [
       '#type' => 'details',
@@ -339,24 +298,12 @@ class WSO2AuthCitizenSettingsForm extends ConfigFormBase {
 
     $config->set('citizen.scope', $values['scope']);
 
-    // Save API Manager settings
-    $config->set('citizen.api_manager_environment', $values['api_manager_environment']);
-    $api_manager_client_id = $values['api_manager_client_id'];
-    if (!empty($api_manager_client_id)) {
-      $config->set('citizen.api_manager_client_id', $api_manager_client_id);
-    }
-
-    $api_manager_client_secret = $values['api_manager_client_secret'];
-    if (!empty($api_manager_client_secret)) {
-      $config->set('citizen.api_manager_client_secret', $api_manager_client_secret);
-    }
-
-    // Save the user settings
+    // Save the user settings.
     $config->set('citizen.auto_register', (bool) $values['auto_register']);
     $config->set('citizen.user_role', $values['user_role']);
     $config->set('citizen.roles_to_exclude', $values['roles_to_exclude']);
 
-    // Save the field mappings
+    // Save the field mappings.
     $config->set('citizen.mapping', [
       'user_id' => $values['user_id'],
       'username' => $values['username'],
@@ -369,9 +316,10 @@ class WSO2AuthCitizenSettingsForm extends ConfigFormBase {
 
     $config->save();
 
-    // Pulisce la cache per assicurarsi che le modifiche vengano applicate immediatamente
+    // Clear cache to ensure changes are applied immediately.
     \Drupal::service('cache.config')->deleteAll();
 
     parent::submitForm($form, $form_state);
   }
+
 }

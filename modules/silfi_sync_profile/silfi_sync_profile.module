@@ -26,3 +26,19 @@ function silfi_sync_profile_help($route_name, RouteMatchInterface $route_match) 
       return $output;
   }
 }
+
+/**
+ * Implements hook_menu_links_discovered_alter().
+ */
+function silfi_sync_profile_menu_links_discovered_alter(&$links) {
+  // Add our settings page to the WSO2 auth menu structure.
+  $links['silfi_sync_profile.settings'] = [
+    'title' => t('Profile Synchronization'),
+    'route_name' => 'silfi_sync_profile.settings',
+    'parent' => 'wso2_auth.settings',
+    'description' => t('Configure automatic profile synchronization from OpenCity.'),
+    'weight' => 30,
+    'menu_name' => 'admin',
+    'provider' => 'silfi_sync_profile',
+  ];
+}
