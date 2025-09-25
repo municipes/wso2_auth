@@ -102,7 +102,6 @@ class WSO2AuthCitizenSettingsForm extends ConfigFormBase {
       '#required' => TRUE,
     ];
 
-
     $form['user_settings'] = [
       '#type' => 'details',
       '#title' => $this->t('User Settings'),
@@ -321,5 +320,4 @@ class WSO2AuthCitizenSettingsForm extends ConfigFormBase {
 
     parent::submitForm($form, $form_state);
   }
-
 }
