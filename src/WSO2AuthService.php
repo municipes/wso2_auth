@@ -809,8 +809,30 @@ class WSO2AuthService {
     }
 
     // Update additional fields for operators if available
+    // Support both old format (string) and new format (array) for backward compatibility
     if (!empty($user_data['groups']) && $account->hasField('field_user_groups')) {
-      $account->set('field_user_groups', $user_data['groups']);
+      // New format: groups is an array
+      if (is_array($user_data['groups'])) {
+        // Convert array to comma-separated string for storage
+        $groups_string = implode(',', $user_data['groups']);
+        $account->set('field_user_groups', $groups_string);
+
+        if ($this->debug) {
+          $this->logger->debug('WSO2 Auth: Processing groups in new array format: @groups', [
+            '@groups' => $groups_string,
+          ]);
+        }
+      }
+      // Old format: groups is already a string
+      else {
+        $account->set('field_user_groups', $user_data['groups']);
+
+        if ($this->debug) {
+          $this->logger->debug('WSO2 Auth: Processing groups in old string format: @groups', [
+            '@groups' => $user_data['groups'],
+          ]);
+        }
+      }
       $updated = TRUE;
     }
 
