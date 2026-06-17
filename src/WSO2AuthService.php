@@ -674,7 +674,7 @@ class WSO2AuthService {
         // Generate a email based on the ID if no mapping is available.
         $prefix = ($auth_type === 'operator') ? 'wso2op_' : '';
         // temporaneo da migliorare/modificare
-        $user_info['mail'] = $prefix . substr(strtolower($user_data['family_name'] . $user_data['given_name']), 0, 20) . random_int(10, 99) . '@gmail.com';
+        $user_info['mail'] = $prefix . substr(strtolower($user_data['family_name'] . $user_data['given_name']), 0, 20) . random_int(10, 99) . '@EMAIL.DAINSERIRE';
       }
 
       // Map username.
