@@ -1,7 +1,7 @@
 name: Silfi Sync Profile
 type: module
 description: 'Synchronizes user profile data from OpenCity service when accessing booking appointments'
-core_version_requirement: ^10 || ^11.1
+core_version_requirement: ^10.3 || ^11
 package: Authentication
 dependencies:
   - wso2_auth:wso2_auth

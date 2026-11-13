@@ -6,6 +6,8 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\user\Entity\Role;
+use Drupal\user\RoleInterface;
 use Drupal\wso2_auth\WSO2AuthService;
 
 /**
@@ -229,7 +231,8 @@ class WSO2AuthOperatorSettingsForm extends ConfigFormBase {
     $options = ['none' => $this->t('- None -')];
 
     // Get all roles except for anonymous.
-    $roles = user_roles(TRUE);
+    $roles = Role::loadMultiple();
+    unset($roles[RoleInterface::ANONYMOUS_ID]);
     foreach ($roles as $role_id => $role) {
       $options[$role_id] = $role->label();
     }
